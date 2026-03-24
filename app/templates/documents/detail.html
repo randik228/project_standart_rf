@@ -19,7 +19,7 @@
     <div class="d-flex align-items-start gap-3 flex-wrap">
       <div class="flex-grow-1">
         <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
-          <span class="badge bg-{{ si[1] }} fs-6">{{ si[0] }}</span>
+          <span class="badge bg-{{ si[1] }} fs-6"><i class="bi bi-{{ si[2] }} me-1"></i>{{ si[0] }}</span>
           <span class="badge bg-light text-dark border">{{ doc.type_label() }}</span>
           {% if doc.rubric %}
           <a href="{{ url_for('rubrics.detail', rubric_id=doc.rubric_id) }}"
@@ -102,11 +102,19 @@
         </div>
         {% endif %}
 
-        {% if doc.latest_version() %}
-        <a href="#" class="btn btn-primary btn-sm">
+        {% set lv = doc.latest_version() %}
+        {% if lv %}
+        {% if lv.file_path %}
+        <a href="{{ url_for('static', filename=lv.file_path) }}" download
+           class="btn btn-primary btn-sm">
           <i class="bi bi-download me-1"></i>Скачать
-          <span class="ms-1 opacity-75" style="font-size:10px;">v{{ doc.latest_version().version_number }}</span>
+          <span class="ms-1 opacity-75" style="font-size:10px;">v{{ lv.version_number }}</span>
         </a>
+        {% else %}
+        <span class="btn btn-outline-secondary btn-sm disabled">
+          <i class="bi bi-file-earmark me-1"></i>v{{ lv.version_number }} (нет файла)
+        </span>
+        {% endif %}
         {% endif %}
       </div>
     </div>
@@ -147,39 +155,55 @@
   <!-- LEFT: comments -->
   <div class="col-xl-8">
 
-    <!-- Add comment form (for experts and all authenticated users) -->
+    <!-- Add comment form -->
     {% if doc.status in ('discussion', 'review') or user.role == 'admin' %}
     <div class="card mb-4">
       <div class="card-header">
         <i class="bi bi-plus-circle text-primary me-2"></i>
-        {% if user.role == 'expert' %}Оставить замечание / предложение
-        {% else %}Добавить комментарий{% endif %}
+        {% if user.role == 'expert' %}Подать замечание / предложение{% else %}Добавить запись{% endif %}
       </div>
       <div class="card-body">
         <form method="POST" action="{{ url_for('documents.add_comment', doc_id=doc.id) }}">
           <div class="row g-3 mb-3">
-            <div class="col-sm-6">
-              <label class="form-label">Тип</label>
+            <div class="col-sm-4">
+              <label class="form-label">Тип <span class="text-danger">*</span></label>
               <select name="comment_type" class="form-select">
                 <option value="remark">Замечание</option>
                 <option value="proposal">Предложение</option>
                 <option value="question">Вопрос</option>
               </select>
             </div>
-            <div class="col-sm-6">
-              <label class="form-label">Раздел / пункт документа</label>
-              <input type="text" name="section" class="form-control"
-                     placeholder="напр. п. 3.2, Раздел 5…">
+            <div class="col-sm-4">
+              <label class="form-label">Структурный элемент</label>
+              <input type="text" name="structural_element" class="form-control"
+                     placeholder="напр. п. 3.2, Приложение А…">
+            </div>
+            <div class="col-sm-4">
+              <label class="form-label">Номер и дата письма</label>
+              <input type="text" name="letter_details" class="form-control"
+                     placeholder="Исх. №__ от __.__.____">
             </div>
           </div>
           <div class="mb-3">
-            <label class="form-label">Текст замечания <span class="text-danger">*</span></label>
-            <textarea name="text" class="form-control" rows="4"
-                      placeholder="Опишите замечание, предложение или вопрос…" required></textarea>
+            <label class="form-label">Замечание / предложение <span class="text-danger">*</span></label>
+            <textarea name="text" class="form-control" rows="3"
+                      placeholder="Изложите суть замечания или предложения…" required></textarea>
+          </div>
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label">Предлагаемая редакция</label>
+              <textarea name="proposed_text" class="form-control" rows="3"
+                        placeholder="Предлагаемый текст взамен действующего…"></textarea>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Обоснование</label>
+              <textarea name="justification" class="form-control" rows="3"
+                        placeholder="Обоснование необходимости изменения…"></textarea>
+            </div>
           </div>
           <div class="d-flex gap-2">
             <button type="submit" class="btn btn-primary">
-              <i class="bi bi-send me-1"></i>Отправить
+              <i class="bi bi-send me-1"></i>Подать замечание
             </button>
             <span class="text-muted align-self-center" style="font-size:12px;">
               Будет зафиксировано с вашим именем и датой
@@ -190,84 +214,127 @@
     </div>
     {% endif %}
 
-    <!-- Comments list -->
+    <!-- Comments table — Сводная ведомость предложений -->
     <div class="card">
       <div class="card-header d-flex align-items-center justify-content-between">
         <span>
-          <i class="bi bi-chat-square-text text-primary me-2"></i>
-          Замечания и предложения
+          <i class="bi bi-table text-primary me-2"></i>
+          Сводная ведомость замечаний и предложений
           <span class="badge bg-secondary ms-1">{{ doc.comments_count() }}</span>
         </span>
         {% if doc.new_comments_count() > 0 %}
         <span class="badge bg-danger">{{ doc.new_comments_count() }} новых</span>
         {% endif %}
       </div>
-      <div class="card-body">
-        {% if doc.comments %}
-          {% set avatar_colors = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b2'] %}
-          {% for c in doc.comments %}
-          {% set ti = c.type_info() %}
-          {% set si_c = c.status_info() %}
-          <div class="comment-card">
-            <div class="comment-header">
-              <div class="comment-avatar"
-                   style="background:{{ avatar_colors[loop.index0 % avatar_colors|length] }}">
-                {{ c.author.get_initials() }}
-              </div>
-              <div>
-                <div class="comment-author">{{ c.author.full_name }}</div>
-                <div class="comment-org">{{ c.author.organization }}</div>
-              </div>
-              <span class="badge bg-{{ ti[1] }}">{{ ti[0] }}</span>
-              <span class="badge bg-{{ si_c[1] }}">{{ si_c[0] }}</span>
-              {% if c.section %}
-              <span class="comment-section">{{ c.section }}</span>
-              {% endif %}
-              <span class="text-muted ms-auto" style="font-size:11.5px;">
-                {{ c.created_at.strftime('%d.%m.%Y %H:%M') }}
-              </span>
-            </div>
-            <div class="comment-text type-{{ c.comment_type }}">{{ c.text }}</div>
 
-            <!-- Status controls for org/admin -->
-            {% if user.role in ('admin', 'org') %}
-            <div class="mt-2 d-flex gap-2 align-items-center">
-              <span class="text-muted" style="font-size:11.5px;">Изменить статус:</span>
-              <form method="POST"
-                    action="{{ url_for('documents.update_comment_status', doc_id=doc.id, comment_id=c.id) }}"
-                    class="d-inline">
-                <input type="hidden" name="status" value="reviewed">
-                <button class="btn btn-xs btn-outline-warning" type="submit"
-                        style="font-size:11px;padding:2px 8px;">Рассмотрено</button>
-              </form>
-              <form method="POST"
-                    action="{{ url_for('documents.update_comment_status', doc_id=doc.id, comment_id=c.id) }}"
-                    class="d-inline">
-                <input type="hidden" name="status" value="accepted">
-                <button class="btn btn-xs btn-outline-success" type="submit"
-                        style="font-size:11px;padding:2px 8px;">Принять</button>
-              </form>
-              <form method="POST"
-                    action="{{ url_for('documents.update_comment_status', doc_id=doc.id, comment_id=c.id) }}"
-                    class="d-inline">
-                <input type="hidden" name="status" value="rejected">
-                <button class="btn btn-xs btn-outline-danger" type="submit"
-                        style="font-size:11px;padding:2px 8px;">Отклонить</button>
-              </form>
-            </div>
-            {% endif %}
-          </div>
-          {% endfor %}
-        {% else %}
+      {% if doc.comments %}
+      <div class="table-responsive">
+        <table class="table table-bordered table-hover align-top mb-0"
+               style="font-size:12.5px;min-width:900px;">
+          <thead class="table-light">
+            <tr>
+              <th style="width:36px;" class="text-center">№</th>
+              <th style="width:110px;">Структурный элемент</th>
+              <th style="width:160px;">Организация / письмо</th>
+              <th>Замечание / предложение</th>
+              <th>Предлагаемая редакция</th>
+              <th>Обоснование</th>
+              <th style="width:160px;">Ответ разработчика</th>
+              <th style="width:110px;" class="text-center">Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in doc.comments %}
+            {% set ti = c.type_info() %}
+            {% set si_c = c.status_info() %}
+            <tr>
+              <td class="text-center text-muted" style="font-size:11px;">{{ loop.index }}</td>
+              <td>
+                {% if c.structural_element %}
+                <span class="fw-semibold">{{ c.structural_element }}</span>
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="fw-semibold" style="font-size:11.5px;">{{ c.author.organization }}</div>
+                <div class="text-muted" style="font-size:11px;">{{ c.author.full_name }}</div>
+                {% if c.letter_details %}
+                <div class="text-muted mt-1" style="font-size:10.5px;font-style:italic;">{{ c.letter_details }}</div>
+                {% endif %}
+                <div class="mt-1">
+                  <span class="badge bg-{{ ti[1] }}" style="font-size:10px;">{{ ti[0] }}</span>
+                </div>
+                <div class="text-muted mt-1" style="font-size:10px;">{{ c.created_at.strftime('%d.%m.%Y') }}</div>
+              </td>
+              <td>{{ c.text }}</td>
+              <td>
+                {% if c.proposed_text %}{{ c.proposed_text }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td>
+                {% if c.justification %}{{ c.justification }}
+                {% else %}<span class="text-muted">—</span>{% endif %}
+              </td>
+              <td>
+                {% if user.role in ('admin', 'org') %}
+                <form method="POST"
+                      action="{{ url_for('documents.save_comment_response', doc_id=doc.id, comment_id=c.id) }}">
+                  <textarea name="developer_response" class="form-control form-control-sm mb-1" rows="3"
+                            placeholder="Введите ответ…"
+                            style="font-size:11px;">{{ c.developer_response or '' }}</textarea>
+                  <button class="btn btn-xs btn-outline-secondary w-100" type="submit"
+                          style="font-size:10px;padding:2px 6px;">Сохранить</button>
+                </form>
+                {% else %}
+                  {% if c.developer_response %}{{ c.developer_response }}
+                  {% else %}<span class="text-muted">—</span>{% endif %}
+                {% endif %}
+              </td>
+              <td class="text-center">
+                <span class="badge bg-{{ si_c[1] }} d-block mb-2">{{ si_c[0] }}</span>
+                {% if user.role in ('admin', 'org') %}
+                <div class="d-flex flex-column gap-1">
+                  <form method="POST"
+                        action="{{ url_for('documents.update_comment_status', doc_id=doc.id, comment_id=c.id) }}"
+                        class="d-grid">
+                    <input type="hidden" name="status" value="accepted">
+                    <button class="btn btn-xs btn-outline-success" type="submit"
+                            style="font-size:10px;padding:1px 4px;">Принято</button>
+                  </form>
+                  <form method="POST"
+                        action="{{ url_for('documents.update_comment_status', doc_id=doc.id, comment_id=c.id) }}"
+                        class="d-grid">
+                    <input type="hidden" name="status" value="accepted_partly">
+                    <button class="btn btn-xs btn-outline-primary" type="submit"
+                            style="font-size:10px;padding:1px 4px;">Принято частично</button>
+                  </form>
+                  <form method="POST"
+                        action="{{ url_for('documents.update_comment_status', doc_id=doc.id, comment_id=c.id) }}"
+                        class="d-grid">
+                    <input type="hidden" name="status" value="rejected">
+                    <button class="btn btn-xs btn-outline-danger" type="submit"
+                            style="font-size:10px;padding:1px 4px;">Отклонено</button>
+                  </form>
+                </div>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body">
         <div class="text-center py-5 text-muted">
-          <i class="bi bi-chat-square" style="font-size:36px;opacity:.25;"></i>
+          <i class="bi bi-table" style="font-size:36px;opacity:.25;"></i>
           <p class="mt-2 mb-0" style="font-size:13.5px;">Замечаний пока нет.</p>
           {% if doc.status == 'discussion' %}
-          <p class="mt-1" style="font-size:12.5px;">Будьте первым — оставьте замечание или предложение выше.</p>
+          <p class="mt-1" style="font-size:12.5px;">Будьте первым — подайте замечание или предложение выше.</p>
           {% endif %}
         </div>
-        {% endif %}
       </div>
+      {% endif %}
     </div>
   </div>
 
@@ -312,6 +379,38 @@
       </div>
     </div>
 
+    <!-- Upload new version (org/admin only) -->
+    {% if user.role in ('admin', 'org') and (doc.author_id == user.id or user.role == 'admin') %}
+    <div class="card mb-4">
+      <div class="card-header">
+        <i class="bi bi-cloud-upload text-primary me-2"></i>Загрузить версию документа
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('documents.upload_version', doc_id=doc.id) }}"
+              enctype="multipart/form-data">
+          <div class="row g-2 mb-2">
+            <div class="col-sm-4">
+              <input type="text" name="version_number" class="form-control form-control-sm"
+                     placeholder="Версия, напр. 1.2" value="">
+            </div>
+            <div class="col-sm-8">
+              <input type="text" name="note" class="form-control form-control-sm"
+                     placeholder="Примечание (необязательно)">
+            </div>
+          </div>
+          <div class="mb-2">
+            <input type="file" name="file" class="form-control form-control-sm"
+                   accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.rar" required>
+            <div class="form-text" style="font-size:11px;">PDF, DOC, DOCX, XLS, XLSX, ZIP, RAR</div>
+          </div>
+          <button type="submit" class="btn btn-sm btn-primary w-100">
+            <i class="bi bi-upload me-1"></i>Загрузить
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
     <!-- Versions -->
     {% if doc.versions %}
     <div class="card">
@@ -337,9 +436,16 @@
             <div class="text-muted mt-1" style="font-size:11px;font-style:italic;">{{ v.note }}</div>
             {% endif %}
           </div>
-          <a href="#" class="btn btn-sm btn-outline-secondary" title="Скачать">
+          {% if v.file_path %}
+          <a href="{{ url_for('static', filename=v.file_path) }}" download
+             class="btn btn-sm btn-outline-secondary" title="Скачать">
             <i class="bi bi-download"></i>
           </a>
+          {% else %}
+          <span class="btn btn-sm btn-outline-secondary disabled" title="Файл не загружен">
+            <i class="bi bi-question-circle"></i>
+          </span>
+          {% endif %}
         </div>
         {% endfor %}
       </div>

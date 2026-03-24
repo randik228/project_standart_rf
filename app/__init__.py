@@ -1,13 +1,21 @@
+from datetime import timezone, timedelta
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from config import Config
 
 db = SQLAlchemy()
+_MSK = timezone(timedelta(hours=3))
 
 
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
+
+    @app.template_filter('msk')
+    def to_msk(dt):
+        if dt is None:
+            return dt
+        return dt.replace(tzinfo=timezone.utc).astimezone(_MSK)
 
     db.init_app(app)
 

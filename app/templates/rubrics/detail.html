@@ -46,21 +46,19 @@
           {% set si = doc.status_info() %}
           <a href="{{ url_for('documents.detail', doc_id=doc.id) }}"
              class="d-flex align-items-start gap-3 px-4 py-3 border-bottom
-                    text-decoration-none text-dark list-group-item-action">
+                    text-decoration-none text-dark list-group-item-action"
+             style="overflow:hidden;">
             <div class="mt-1 flex-shrink-0">
-              <span class="badge bg-{{ si[1] }}">{{ si[0] }}</span>
+              <span class="badge bg-{{ si[1] }}"><i class="bi bi-{{ si[2] }} me-1"></i>{{ si[0] }}</span>
             </div>
-            <div class="flex-grow-1 min-w-0">
+            <div class="flex-grow-1 min-w-0" style="overflow:hidden;">
               <div class="fw-semibold text-truncate" style="font-size:13.5px;">{{ doc.title }}</div>
-              <div class="text-muted mt-1" style="font-size:12px;">
-                {{ doc.number or '—' }}
-                {% if doc.discussion_deadline %}
-                · до {{ doc.discussion_deadline.strftime('%d.%m.%Y') }}
-                {% endif %}
+              <div class="text-muted mt-1 text-truncate" style="font-size:12px;">
+                {{ doc.number or '—' }}{% if doc.discussion_deadline %} · до {{ doc.discussion_deadline.strftime('%d.%m.%Y') }}{% endif %}
               </div>
             </div>
-            <div class="text-muted flex-shrink-0" style="font-size:12px;">
-              <i class="bi bi-chat me-1"></i>{{ doc.comments_count() }}
+            <div class="text-muted flex-shrink-0 d-flex align-items-center gap-1 mt-1" style="font-size:12px;white-space:nowrap;">
+              <i class="bi bi-chat"></i><span>{{ doc.comments_count() }}</span>
             </div>
           </a>
           {% endfor %}

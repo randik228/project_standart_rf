@@ -60,14 +60,14 @@
       </div>
       <div class="card-body p-0">
         {% if my_docs %}
-        <div class="list-group list-group-flush">
+        <div class="list-group list-group-flush" style="max-height:420px;overflow-y:auto;">
           {% for doc in my_docs %}
           {% set si = doc.status_info() %}
           <a href="{{ url_for('documents.detail', doc_id=doc.id) }}"
              class="list-group-item list-group-item-action px-4 py-3">
             <div class="d-flex align-items-start gap-3">
               <div class="mt-1 flex-shrink-0">
-                <span class="badge bg-{{ si[1] }}">{{ si[0] }}</span>
+                <span class="badge bg-{{ si[1] }}"><i class="bi bi-{{ si[2] }} me-1"></i>{{ si[0] }}</span>
               </div>
               <div class="flex-grow-1 min-w-0">
                 <div class="fw-semibold text-truncate" style="font-size:13.5px;">{{ doc.title }}</div>

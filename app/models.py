@@ -3,12 +3,12 @@ from app import db
 
 
 DOCUMENT_STATUSES = {
-    'draft':       ('Черновик',        'secondary'),
-    'published':   ('Опубликован',     'primary'),
-    'discussion':  ('На обсуждении',   'warning'),
-    'review':      ('На согласовании', 'info'),
-    'approved':    ('Утверждён',       'success'),
-    'rejected':    ('Отклонён',        'danger'),
+    'draft':       ('Черновик',        'secondary', 'pencil'),
+    'published':   ('Опубликован',     'primary',   'eye'),
+    'discussion':  ('На обсуждении',   'warning',   'chat-square-dots'),
+    'review':      ('На согласовании', 'info',      'hourglass-split'),
+    'approved':    ('Утверждён',       'success',   'check-circle-fill'),
+    'rejected':    ('Отклонён',        'danger',    'x-circle-fill'),
 }
 
 DOCUMENT_TYPES = {
@@ -25,10 +25,10 @@ COMMENT_TYPES = {
 }
 
 COMMENT_STATUSES = {
-    'new':      ('Новое',       'secondary'),
-    'reviewed': ('Рассмотрено', 'warning'),
-    'accepted': ('Принято',     'success'),
-    'rejected': ('Отклонено',   'danger'),
+    'new':             ('Новое',            'secondary'),
+    'accepted':        ('Принято',          'success'),
+    'accepted_partly': ('Принято частично', 'primary'),
+    'rejected':        ('Отклонено',        'danger'),
 }
 
 
@@ -148,14 +148,18 @@ class DocumentVersion(db.Model):
 class Comment(db.Model):
     __tablename__ = 'comments'
 
-    id           = db.Column(db.Integer, primary_key=True)
-    document_id  = db.Column(db.Integer, db.ForeignKey('documents.id'), nullable=False)
-    user_id      = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
-    comment_type = db.Column(db.String(20), default='remark')  # remark | proposal | question
-    section      = db.Column(db.String(200))
-    text         = db.Column(db.Text, nullable=False)
-    status       = db.Column(db.String(20), default='new')     # new | reviewed | accepted | rejected
-    created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+    id                 = db.Column(db.Integer, primary_key=True)
+    document_id        = db.Column(db.Integer, db.ForeignKey('documents.id'), nullable=False)
+    user_id            = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    comment_type       = db.Column(db.String(20), default='remark')  # remark | proposal | question
+    structural_element = db.Column(db.String(200))   # структурный элемент (раздел, пункт)
+    letter_details     = db.Column(db.String(300))   # номер и дата письма организации
+    text               = db.Column(db.Text, nullable=False)   # замечание / предложение
+    proposed_text      = db.Column(db.Text)          # предлагаемая редакция
+    justification      = db.Column(db.Text)          # обоснование
+    developer_response = db.Column(db.Text)          # ответ разработчика
+    status             = db.Column(db.String(20), default='new')
+    created_at         = db.Column(db.DateTime, default=datetime.utcnow)
 
     def type_info(self):
         return COMMENT_TYPES.get(self.comment_type, (self.comment_type, 'secondary'))
@@ -212,5 +216,5 @@ class RubricExpert(db.Model):
     user_id     = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
     assigned_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    rubric = db.relationship('Rubric')
+    rubric = db.relationship('Rubric', backref='expert_assignments')
     user   = db.relationship('User', backref='rubric_assignments')

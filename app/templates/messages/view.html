@@ -16,7 +16,7 @@
       <div class="card-header d-flex align-items-center justify-content-between">
         <span class="fw-semibold" style="font-size:15px;">{{ msg.subject or '(без темы)' }}</span>
         <span class="text-muted" style="font-size:12px;">
-          {{ msg.created_at.strftime('%d.%m.%Y %H:%M') }}
+          {{ (msg.created_at | msk).strftime('%d.%m.%Y %H:%M') }} МСК
         </span>
       </div>
       <div class="card-body p-4">

@@ -12,73 +12,102 @@
 
 <div class="page-header">
   <h1>Добавить документ</h1>
-  <p>Заполните реквизиты документа. Документ будет создан в статусе «Черновик».</p>
+  <p>Заполните реквизиты. Документ будет создан в статусе «Черновик».</p>
 </div>
 
 <div class="row justify-content-center">
   <div class="col-xl-8">
     <div class="card">
       <div class="card-body p-4">
-        <form method="POST" action="{{ url_for('documents.add') }}">
+        <form method="POST" action="{{ url_for('documents.add') }}"
+              enctype="multipart/form-data" novalidate>
 
+          <!-- Наименование -->
           <div class="mb-4">
-            <label class="form-label">Полное наименование документа <span class="text-danger">*</span></label>
-            <textarea name="title" class="form-control" rows="3"
-                      placeholder="напр. ГОСТ Р 58948-2020. Интеллектуальные транспортные системы. Требования к…"
-                      required></textarea>
-            <div class="form-text">Укажите полное официальное наименование документа</div>
+            <label class="form-label">
+              Полное наименование документа <span class="text-danger">*</span>
+            </label>
+            <textarea name="title" class="form-control" rows="3" required
+                      placeholder="напр. ГОСТ Р 58948-2020. Интеллектуальные транспортные системы…"
+                      >{{ form_data.get('title', '') }}</textarea>
+            <div class="form-text">Укажите полное официальное наименование</div>
           </div>
 
+          <!-- Номер + тип -->
           <div class="row g-3 mb-4">
             <div class="col-sm-6">
-              <label class="form-label">Обозначение / номер документа</label>
-              <input type="text" name="number" class="form-control"
-                     placeholder="напр. ГОСТ Р 58948-2020, МР-15-2024">
+              <label class="form-label">
+                Обозначение / номер <span class="text-danger">*</span>
+              </label>
+              <input type="text" name="number" class="form-control" required
+                     placeholder="напр. ГОСТ Р 58948-2020, МР-15-2024"
+                     value="{{ form_data.get('number', '') }}">
             </div>
             <div class="col-sm-6">
               <label class="form-label">Тип документа</label>
               <select name="doc_type" class="form-select">
                 {% for key, label in DOCUMENT_TYPES.items() %}
-                <option value="{{ key }}">{{ label }}</option>
+                <option value="{{ key }}"
+                  {% if form_data.get('doc_type', 'standard') == key %}selected{% endif %}>
+                  {{ label }}
+                </option>
                 {% endfor %}
               </select>
             </div>
           </div>
 
+          <!-- Рубрика + срок -->
           <div class="row g-3 mb-4">
             <div class="col-sm-6">
               <label class="form-label">Рубрика</label>
               <select name="rubric_id" class="form-select">
                 <option value="">— Без рубрики —</option>
                 {% for r in rubrics %}
-                <option value="{{ r.id }}">[{{ r.code }}] {{ r.name }}</option>
+                <option value="{{ r.id }}"
+                  {% if form_data.get('rubric_id', '') == r.id|string %}selected{% endif %}>
+                  [{{ r.code }}] {{ r.name }}
+                </option>
                 {% endfor %}
               </select>
             </div>
             <div class="col-sm-6">
               <label class="form-label">Срок обсуждения</label>
-              <input type="date" name="discussion_deadline" class="form-control">
+              <input type="date" name="discussion_deadline" class="form-control"
+                     value="{{ form_data.get('discussion_deadline', '') }}">
               <div class="form-text">Дата окончания приёма замечаний</div>
             </div>
           </div>
 
+          <!-- Описание -->
           <div class="mb-4">
-            <label class="form-label">Аннотация / описание</label>
-            <textarea name="description" class="form-control" rows="4"
-                      placeholder="Краткое описание содержания и назначения документа…"></textarea>
+            <label class="form-label">
+              Аннотация / описание <span class="text-danger">*</span>
+            </label>
+            <textarea name="description" class="form-control" rows="4" required
+                      placeholder="Краткое описание содержания и назначения документа…"
+                      >{{ form_data.get('description', '') }}</textarea>
           </div>
 
-          <div class="p-3 rounded mb-4" style="background:#fffbeb;border:1px solid #fde68a;">
-            <div class="d-flex gap-2">
-              <i class="bi bi-info-circle text-warning mt-1"></i>
-              <div style="font-size:13px;">
-                <strong>Следующие шаги после создания:</strong><br>
-                После создания черновика — загрузите файл документа, затем опубликуйте его
-                и откройте обсуждение для сбора замечаний от экспертного сообщества.
+          <!-- Загрузка файла -->
+          <div class="mb-4 p-3 rounded" style="background:#f0fdf4;border:1px solid #bbf7d0;">
+            <div class="fw-semibold mb-2" style="font-size:13.5px;">
+              <i class="bi bi-cloud-upload text-success me-2"></i>Файл документа
+              <span class="text-muted fw-normal" style="font-size:12px;">(необязательно — можно загрузить позже)</span>
+            </div>
+            <div class="row g-2">
+              <div class="col-sm-4">
+                <input type="text" name="version_number" class="form-control form-control-sm"
+                       placeholder="Версия, напр. 1.0" value="1.0">
+              </div>
+              <div class="col-sm-8">
+                <input type="file" name="file" class="form-control form-control-sm"
+                       accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.rar">
+                <div class="form-text" style="font-size:11px;">PDF, DOC, DOCX, XLS, XLSX, ZIP, RAR</div>
               </div>
             </div>
           </div>
 
+          <!-- Submit -->
           <div class="d-flex gap-3">
             <button type="submit" class="btn btn-primary px-4">
               <i class="bi bi-plus-lg me-2"></i>Создать документ

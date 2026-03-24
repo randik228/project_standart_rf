@@ -30,8 +30,15 @@ def rubrics():
 @admin_bp.route('/rubrics/assign', methods=['POST'])
 @role_required('admin')
 def assign_expert():
-    rubric_id = int(request.form.get('rubric_id'))
-    user_id   = int(request.form.get('user_id'))
+    rubric_id_raw = request.form.get('rubric_id', '').strip()
+    user_id_raw   = request.form.get('user_id',   '').strip()
+
+    if not user_id_raw:
+        flash('Выберите эксперта из списка.', 'warning')
+        return redirect(url_for('admin.rubrics'))
+
+    rubric_id = int(rubric_id_raw)
+    user_id   = int(user_id_raw)
     exists = RubricExpert.query.filter_by(rubric_id=rubric_id, user_id=user_id).first()
     if not exists:
         db.session.add(RubricExpert(rubric_id=rubric_id, user_id=user_id))

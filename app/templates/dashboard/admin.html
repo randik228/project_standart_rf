@@ -61,12 +61,12 @@
           <canvas id="statusChart"></canvas>
         </div>
         <div class="mt-3 w-100">
-          {% for key, (label, color_cls) in DOCUMENT_STATUSES.items() %}
+          {% for key, (label, color_cls, icon) in DOCUMENT_STATUSES.items() %}
           {% set cnt = status_counts.get(key, 0) %}
           {% if cnt > 0 %}
           <div class="d-flex align-items-center justify-content-between mb-1">
             <div class="d-flex align-items-center gap-2">
-              <span class="badge bg-{{ color_cls }}">{{ label }}</span>
+              <span class="badge bg-{{ color_cls }}"><i class="bi bi-{{ icon }} me-1"></i>{{ label }}</span>
             </div>
             <strong style="font-size:13px;">{{ cnt }}</strong>
           </div>
@@ -93,8 +93,8 @@
           <a href="{{ url_for('documents.detail', doc_id=doc.id) }}"
              class="list-group-item list-group-item-action px-4 py-3">
             <div class="d-flex align-items-start gap-3">
-              <div class="mt-1">
-                <span class="badge bg-{{ si[1] }}">{{ si[0] }}</span>
+              <div class="mt-1 flex-shrink-0">
+                <span class="badge bg-{{ si[1] }}"><i class="bi bi-{{ si[2] }} me-1"></i>{{ si[0] }}</span>
               </div>
               <div class="flex-grow-1 min-w-0">
                 <div class="fw-semibold text-truncate" style="font-size:13.5px;">{{ doc.title }}</div>
@@ -142,14 +142,14 @@
         {% set si = c.status_info() %}
         <tr>
           <td><span class="badge bg-{{ ti[1] }}">{{ ti[0] }}</span></td>
-          <td style="font-size:13px;">{{ c.author.full_name }}</td>
-          <td>
+          <td style="font-size:13px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ c.author.full_name }}</td>
+          <td style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
             <a href="{{ url_for('documents.detail', doc_id=c.document_id) }}"
                class="text-decoration-none" style="font-size:13px;">
               {{ c.document.number or c.document.title[:30] ~ '…' }}
             </a>
           </td>
-          <td class="text-muted" style="font-size:12px;">{{ c.section or '—' }}</td>
+          <td class="text-muted" style="font-size:12px;max-width:100px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ c.structural_element or '—' }}</td>
           <td><span class="badge bg-{{ si[1] }}">{{ si[0] }}</span></td>
           <td class="text-muted" style="font-size:12px;">{{ c.created_at.strftime('%d.%m %H:%M') }}</td>
         </tr>
@@ -168,13 +168,13 @@ if (ctx) {
     type: 'doughnut',
     data: {
       labels: [
-        {% for key, (label, _) in DOCUMENT_STATUSES.items() %}
+        {% for key, (label, _, _icon) in DOCUMENT_STATUSES.items() %}
         {% if status_counts.get(key, 0) > 0 %}'{{ label }}',{% endif %}
         {% endfor %}
       ],
       datasets: [{
         data: [
-          {% for key, (_, _) in DOCUMENT_STATUSES.items() %}
+          {% for key, (_l, _c, _i) in DOCUMENT_STATUSES.items() %}
           {% if status_counts.get(key, 0) > 0 %}{{ status_counts.get(key, 0) }},{% endif %}
           {% endfor %}
         ],

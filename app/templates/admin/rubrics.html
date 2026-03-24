@@ -9,10 +9,13 @@
 </div>
 
 {% for rubric in rubrics %}
+{% set assigned_ids = rubric.expert_assignments | map(attribute='user_id') | list %}
+{% set available = experts | rejectattr('id', 'in', assigned_ids) | list %}
+
 <div class="card mb-4">
-  <div class="card-header d-flex align-items-center justify-content-between">
+  <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
     <div class="d-flex align-items-center gap-3">
-      <div style="width:40px;height:40px;background:#eff6ff;border-radius:10px;
+      <div style="width:42px;height:42px;background:#eff6ff;border-radius:10px;
                   display:flex;align-items:center;justify-content:center;
                   font-size:12px;font-weight:700;color:#2563eb;flex-shrink:0;">
         {{ rubric.code }}
@@ -20,48 +23,77 @@
       <div>
         <div class="fw-bold" style="font-size:15px;">{{ rubric.name }}</div>
         <div class="text-muted" style="font-size:12px;">
-          {{ rubric.document_count() }} документов · {{ rubric.expert_count() }} экспертов
+          {{ rubric.document_count() }} документов
+          · <span class="{% if rubric.expert_assignments %}text-success fw-semibold{% endif %}">
+            {{ rubric.expert_assignments | length }} экспертов
+          </span>
         </div>
       </div>
     </div>
-    <!-- Assign expert form -->
-    <form method="POST" action="{{ url_for('admin.assign_expert') }}" class="d-flex gap-2">
+
+    <!-- Assign expert form with live search -->
+    <form method="POST" action="{{ url_for('admin.assign_expert') }}"
+          class="d-flex gap-2 align-items-center expert-assign-form"
+          onsubmit="return validateAssign(this)">
       <input type="hidden" name="rubric_id" value="{{ rubric.id }}">
-      <select name="user_id" class="form-select form-select-sm" style="width:220px;">
-        <option value="">— Добавить эксперта —</option>
-        {% for e in experts %}
-        <option value="{{ e.id }}">{{ e.full_name }}</option>
-        {% endfor %}
-      </select>
-      <button type="submit" class="btn btn-sm btn-primary">
+      <input type="hidden" name="user_id" class="expert-id-input">
+
+      <!-- Searchable dropdown -->
+      <div class="expert-search-wrap position-relative" style="min-width:260px;">
+        <input type="text"
+               class="form-control form-control-sm expert-search-input"
+               placeholder="{% if available %}Поиск по ФИО…{% else %}Все эксперты назначены{% endif %}"
+               autocomplete="off"
+               {% if not available %}disabled{% endif %}>
+        <div class="expert-dropdown shadow-sm border rounded"
+             style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;
+                    background:#fff;z-index:500;max-height:220px;overflow-y:auto;">
+          {% for e in available %}
+          <div class="expert-option px-3 py-2"
+               data-id="{{ e.id }}"
+               data-name="{{ e.full_name }}"
+               style="cursor:pointer;font-size:13px;">
+            <div class="fw-semibold">{{ e.full_name }}</div>
+            <div class="text-muted" style="font-size:11.5px;">{{ e.organization }}</div>
+          </div>
+          {% endfor %}
+          <div class="expert-no-match px-3 py-2 text-muted"
+               style="font-size:13px;display:none;">Ничего не найдено</div>
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-sm btn-primary"
+              {% if not available %}disabled{% endif %}>
         <i class="bi bi-plus-lg me-1"></i>Назначить
       </button>
     </form>
   </div>
-  <div class="card-body">
+
+  <div class="card-body {% if rubric.expert_assignments %}pb-2{% endif %}">
     {% if rubric.description %}
     <p class="text-muted mb-3" style="font-size:13px;">{{ rubric.description }}</p>
     {% endif %}
 
-    {% set rubric_assignments = rubric.expert_assignments %}
-    {% if rubric_assignments %}
+    {% if rubric.expert_assignments %}
     <div class="row g-2">
-      {% for re in rubric_assignments %}
+      {% for re in rubric.expert_assignments %}
       <div class="col-sm-6 col-xl-4">
-        <div class="d-flex align-items-center gap-2 p-3 rounded border"
-             style="background:#f9fafb;">
-          <div class="user-avatar" style="width:36px;height:36px;font-size:12px;
-               background:#059669;flex-shrink:0;">
+        <div class="d-flex align-items-center gap-2 p-3 rounded border" style="background:#f9fafb;">
+          {% set _colors = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626'] %}
+          <div class="user-avatar flex-shrink-0"
+               style="width:36px;height:36px;font-size:12px;
+                      background:{{ _colors[re.user.id % _colors|length] }};">
             {{ re.user.get_initials() }}
           </div>
           <div class="flex-grow-1 min-w-0">
             <div class="fw-semibold text-truncate" style="font-size:13px;">{{ re.user.full_name }}</div>
             <div class="text-muted text-truncate" style="font-size:11.5px;">{{ re.user.organization }}</div>
+            <div class="text-muted" style="font-size:11px;">{{ re.user.position }}</div>
           </div>
           <form method="POST" action="{{ url_for('admin.unassign_expert', re_id=re.id) }}"
                 class="flex-shrink-0">
-            <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить из рубрики"
-                    style="padding:2px 7px;">
+            <button type="submit" class="btn btn-sm btn-outline-danger"
+                    title="Убрать из рубрики" style="padding:3px 8px;">
               <i class="bi bi-x-lg" style="font-size:11px;"></i>
             </button>
           </form>
@@ -70,11 +102,103 @@
       {% endfor %}
     </div>
     {% else %}
-    <div class="text-muted" style="font-size:13px;">
-      <i class="bi bi-info-circle me-1"></i>Экспертов пока не назначено
+    <div class="text-muted d-flex align-items-center gap-2" style="font-size:13px;">
+      <i class="bi bi-person-x opacity-50"></i>
+      Экспертов пока не назначено — начните вводить ФИО выше
     </div>
     {% endif %}
   </div>
 </div>
 {% endfor %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function validateAssign(form) {
+  const id = form.querySelector('.expert-id-input').value;
+  if (!id) {
+    const input = form.querySelector('.expert-search-input');
+    input.classList.add('is-invalid');
+    input.placeholder = 'Выберите эксперта из списка';
+    setTimeout(() => input.classList.remove('is-invalid'), 1500);
+    return false;
+  }
+  return true;
+}
+
+document.querySelectorAll('.expert-assign-form').forEach(form => {
+  const searchInput = form.querySelector('.expert-search-input');
+  const idInput     = form.querySelector('.expert-id-input');
+  const dropdown    = form.querySelector('.expert-dropdown');
+  const options     = Array.from(form.querySelectorAll('.expert-option'));
+  const noMatch     = form.querySelector('.expert-no-match');
+
+  function showDropdown() {
+    if (options.length > 0) dropdown.style.display = 'block';
+  }
+  function hideDropdown() {
+    setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+  }
+  function filterOptions(q) {
+    const term = q.toLowerCase().trim();
+    let visible = 0;
+    options.forEach(opt => {
+      const name = opt.dataset.name.toLowerCase();
+      const show = !term || name.includes(term);
+      opt.style.display = show ? 'block' : 'none';
+      if (show) visible++;
+    });
+    noMatch.style.display = visible === 0 ? 'block' : 'none';
+  }
+  function selectOption(opt) {
+    idInput.value        = opt.dataset.id;
+    searchInput.value    = opt.dataset.name;
+    dropdown.style.display = 'none';
+    searchInput.classList.remove('is-invalid');
+  }
+
+  searchInput.addEventListener('focus', () => {
+    filterOptions(searchInput.value);
+    showDropdown();
+  });
+  searchInput.addEventListener('blur', hideDropdown);
+  searchInput.addEventListener('input', () => {
+    idInput.value = '';           // clear selection if user edits
+    filterOptions(searchInput.value);
+    showDropdown();
+  });
+  options.forEach(opt => {
+    opt.addEventListener('mousedown', e => {
+      e.preventDefault();
+      selectOption(opt);
+    });
+    opt.addEventListener('mouseover', () => {
+      options.forEach(o => o.style.background = '');
+      opt.style.background = '#eff6ff';
+    });
+    opt.addEventListener('mouseout',  () => { opt.style.background = ''; });
+  });
+
+  // Keyboard navigation
+  searchInput.addEventListener('keydown', e => {
+    const visible = options.filter(o => o.style.display !== 'none');
+    const cur = visible.findIndex(o => o.style.background === 'rgb(239, 246, 255)');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      const next = visible[cur + 1] || visible[0];
+      if (next) { options.forEach(o => o.style.background = ''); next.style.background = '#eff6ff'; next.scrollIntoView({block:'nearest'}); }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const prev = visible[cur - 1] || visible[visible.length - 1];
+      if (prev) { options.forEach(o => o.style.background = ''); prev.style.background = '#eff6ff'; prev.scrollIntoView({block:'nearest'}); }
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const highlighted = visible.find(o => o.style.background === 'rgb(239, 246, 255)') || visible[0];
+      if (highlighted) selectOption(highlighted);
+    } else if (e.key === 'Escape') {
+      dropdown.style.display = 'none';
+    }
+  });
+});
+</script>
 {% endblock %}

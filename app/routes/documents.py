@@ -1,5 +1,7 @@
+import os
 from datetime import datetime, date, timedelta
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from werkzeug.utils import secure_filename
 from app import db
 from app.models import (User, Document, DocumentVersion, Comment, DocumentStage,
                         Rubric, Notification, DOCUMENT_STATUSES, DOCUMENT_TYPES)
@@ -66,12 +68,26 @@ def add():
     rubrics = Rubric.query.all()
 
     if request.method == 'POST':
-        title    = request.form.get('title', '').strip()
-        number   = request.form.get('number', '').strip()
+        title     = request.form.get('title', '').strip()
+        number    = request.form.get('number', '').strip()
         rubric_id = request.form.get('rubric_id') or None
         doc_type  = request.form.get('doc_type', 'standard')
         desc      = request.form.get('description', '').strip()
         dl_str    = request.form.get('discussion_deadline', '')
+
+        errors = []
+        if not title:
+            errors.append('Наименование документа обязательно.')
+        if not number:
+            errors.append('Обозначение / номер документа обязателен.')
+        if not desc:
+            errors.append('Аннотация / описание обязательны.')
+        if errors:
+            for e in errors:
+                flash(e, 'danger')
+            return render_template('documents/add.html', rubrics=rubrics,
+                                   DOCUMENT_TYPES=DOCUMENT_TYPES, user=user,
+                                   form_data=request.form)
 
         deadline = None
         if dl_str:
@@ -79,11 +95,6 @@ def add():
                 deadline = date.fromisoformat(dl_str)
             except ValueError:
                 pass
-
-        if not title:
-            flash('Название документа обязательно.', 'danger')
-            return render_template('documents/add.html', rubrics=rubrics,
-                                   DOCUMENT_TYPES=DOCUMENT_TYPES, user=user)
 
         doc = Document(title=title, number=number, rubric_id=rubric_id,
                        author_id=user.id, status='draft', doc_type=doc_type,
@@ -99,12 +110,27 @@ def add():
                 date=date.today() if order == 1 else None,
             ))
 
+        # Optional file upload at creation time
+        file = request.files.get('file')
+        if file and file.filename and _allowed_file(file.filename):
+            version_number = request.form.get('version_number', '1.0').strip() or '1.0'
+            filename  = secure_filename(file.filename)
+            upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', str(doc.id))
+            os.makedirs(upload_dir, exist_ok=True)
+            save_path = os.path.join(upload_dir, filename)
+            file.save(save_path)
+            db.session.add(DocumentVersion(
+                document_id=doc.id, version_number=version_number,
+                file_name=filename, file_path=f'uploads/{doc.id}/{filename}',
+                file_size=os.path.getsize(save_path), uploaded_by=user.id,
+            ))
+
         db.session.commit()
         flash('Документ создан как черновик.', 'success')
         return redirect(url_for('documents.detail', doc_id=doc.id))
 
     return render_template('documents/add.html', rubrics=rubrics,
-                           DOCUMENT_TYPES=DOCUMENT_TYPES, user=user)
+                           DOCUMENT_TYPES=DOCUMENT_TYPES, user=user, form_data={})
 
 
 @documents_bp.route('/<int:doc_id>/set-status', methods=['POST'])
@@ -121,6 +147,11 @@ def set_status(doc_id):
     valid = ['draft', 'published', 'discussion', 'review', 'approved', 'rejected']
     if new_status not in valid:
         flash('Недопустимый статус.', 'danger')
+        return redirect(url_for('documents.detail', doc_id=doc_id))
+
+    # Require uploaded file before publishing or opening discussion
+    if new_status in ('published', 'discussion') and not doc.latest_version():
+        flash('Нельзя опубликовать документ без загруженного файла. Загрузите файл в разделе «Версии».', 'warning')
         return redirect(url_for('documents.detail', doc_id=doc_id))
 
     STATUS_STAGE = {
@@ -156,9 +187,12 @@ def add_comment(doc_id):
     user = get_current_user()
     doc  = Document.query.get_or_404(doc_id)
 
-    ctype   = request.form.get('comment_type', 'remark')
-    section = request.form.get('section', '').strip()
-    text    = request.form.get('text', '').strip()
+    ctype              = request.form.get('comment_type', 'remark')
+    structural_element = request.form.get('structural_element', '').strip()
+    letter_details     = request.form.get('letter_details', '').strip()
+    text               = request.form.get('text', '').strip()
+    proposed_text      = request.form.get('proposed_text', '').strip()
+    justification      = request.form.get('justification', '').strip()
 
     if not text:
         flash('Текст замечания не может быть пустым.', 'danger')
@@ -166,7 +200,10 @@ def add_comment(doc_id):
 
     db.session.add(Comment(
         document_id=doc.id, user_id=user.id,
-        comment_type=ctype, section=section, text=text, status='new',
+        comment_type=ctype, structural_element=structural_element or None,
+        letter_details=letter_details or None, text=text,
+        proposed_text=proposed_text or None, justification=justification or None,
+        status='new',
     ))
 
     # Уведомление автору документа
@@ -190,8 +227,68 @@ def add_comment(doc_id):
 def update_comment_status(doc_id, comment_id):
     comment    = Comment.query.get_or_404(comment_id)
     new_status = request.form.get('status')
-    if new_status in ('new', 'reviewed', 'accepted', 'rejected'):
+    valid_statuses = ('new', 'accepted', 'accepted_partly', 'rejected')
+    if new_status in valid_statuses:
         comment.status = new_status
         db.session.commit()
         flash('Статус замечания обновлён.', 'success')
+    return redirect(url_for('documents.detail', doc_id=doc_id))
+
+
+@documents_bp.route('/<int:doc_id>/comment/<int:comment_id>/response', methods=['POST'])
+@role_required('admin', 'org')
+def save_comment_response(doc_id, comment_id):
+    comment  = Comment.query.get_or_404(comment_id)
+    response = request.form.get('developer_response', '').strip()
+    comment.developer_response = response or None
+    db.session.commit()
+    flash('Ответ разработчика сохранён.', 'success')
+    return redirect(url_for('documents.detail', doc_id=doc_id))
+
+
+ALLOWED_EXTENSIONS = {'pdf', 'doc', 'docx', 'xls', 'xlsx', 'zip', 'rar'}
+
+
+def _allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+@documents_bp.route('/<int:doc_id>/upload', methods=['POST'])
+@role_required('admin', 'org')
+def upload_version(doc_id):
+    user = get_current_user()
+    doc  = Document.query.get_or_404(doc_id)
+
+    if doc.author_id != user.id and user.role != 'admin':
+        flash('Нет прав для загрузки файлов к этому документу.', 'danger')
+        return redirect(url_for('documents.detail', doc_id=doc_id))
+
+    file = request.files.get('file')
+    if not file or file.filename == '':
+        flash('Файл не выбран.', 'danger')
+        return redirect(url_for('documents.detail', doc_id=doc_id))
+
+    if not _allowed_file(file.filename):
+        flash('Недопустимый тип файла. Разрешены: PDF, DOC, DOCX, XLS, XLSX, ZIP, RAR.', 'danger')
+        return redirect(url_for('documents.detail', doc_id=doc_id))
+
+    version_number = request.form.get('version_number', '').strip() or '1.0'
+    note           = request.form.get('note', '').strip()
+
+    filename  = secure_filename(file.filename)
+    upload_dir = os.path.join(current_app.root_path, 'static', 'uploads', str(doc_id))
+    os.makedirs(upload_dir, exist_ok=True)
+
+    save_path = os.path.join(upload_dir, filename)
+    file.save(save_path)
+    file_size = os.path.getsize(save_path)
+
+    db.session.add(DocumentVersion(
+        document_id=doc.id, version_number=version_number,
+        file_name=filename, file_path=f'uploads/{doc_id}/{filename}',
+        file_size=file_size, uploaded_by=user.id,
+        note=note or None,
+    ))
+    db.session.commit()
+    flash(f'Версия {version_number} успешно загружена.', 'success')
     return redirect(url_for('documents.detail', doc_id=doc_id))

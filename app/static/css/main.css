@@ -344,7 +344,12 @@ body {
   color: var(--text-main);
   line-height: 1.4;
   margin-bottom: 8px;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
+/* Global overflow guard for all flex text containers */
+.flex-grow-1.min-w-0 { overflow: hidden; }
+a[class*="list-group-item"] { overflow: hidden; }
 .doc-card-meta {
   display: flex;
   flex-wrap: wrap;
@@ -501,8 +506,13 @@ body {
   border-bottom: 1px solid var(--border);
   padding: 10px 14px;
 }
-.table td { padding: 12px 14px; vertical-align: middle; }
+.table td { padding: 12px 14px; vertical-align: middle; word-break: break-word; }
 .table-hover tbody tr:hover { background: #f9fafb; }
+
+/* Overflow-safe flex children */
+.list-group-item .flex-grow-1,
+.list-group-item > div { min-width: 0; }
+.stat-label { overflow-wrap: break-word; }
 
 /* ═══════════════════════════════════════════════════ FORM */
 .form-label {

@@ -31,7 +31,7 @@
     </a>
 
     <a href="{{ url_for('documents.list_documents') }}"
-       class="nav-link {% if request.blueprint == 'documents' %}active{% endif %}">
+       class="nav-link {% if request.blueprint == 'documents' and request.endpoint != 'documents.add' %}active{% endif %}">
       <i class="bi bi-file-earmark-text"></i><span>Документы</span>
     </a>
 
@@ -89,7 +89,8 @@
 
   <div class="sidebar-footer">
     <div class="user-card">
-      <div class="user-avatar" style="background:{{ ['#2563eb','#7c3aed','#059669','#d97706','#dc2626'] | random }}">
+      {% set _avatar_colors = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626'] %}
+      <div class="user-avatar" style="background:{{ _avatar_colors[(current_user.id % _avatar_colors|length) if current_user else 0] }}">
         {{ current_user.get_initials() if current_user else '?' }}
       </div>
       <div class="user-info">

@@ -23,15 +23,15 @@
              value="{{ search }}">
     </div>
     <div style="min-width:160px;">
-      <select name="status" class="form-select">
+      <select name="status" class="form-select" onchange="this.form.submit()">
         <option value="">Все статусы</option>
-        {% for key, (label, _) in DOCUMENT_STATUSES.items() %}
+        {% for key, (label, _c, _i) in DOCUMENT_STATUSES.items() %}
         <option value="{{ key }}" {% if status_filter == key %}selected{% endif %}>{{ label }}</option>
         {% endfor %}
       </select>
     </div>
     <div style="min-width:180px;">
-      <select name="rubric" class="form-select">
+      <select name="rubric" class="form-select" onchange="this.form.submit()">
         <option value="">Все рубрики</option>
         {% for r in rubrics %}
         <option value="{{ r.id }}" {% if rubric_filter == r.id|string %}selected{% endif %}>
@@ -41,7 +41,7 @@
       </select>
     </div>
     <div style="min-width:180px;">
-      <select name="type" class="form-select">
+      <select name="type" class="form-select" onchange="this.form.submit()">
         <option value="">Все типы</option>
         {% for key, label in DOCUMENT_TYPES.items() %}
         <option value="{{ key }}" {% if type_filter == key %}selected{% endif %}>{{ label }}</option>
@@ -66,13 +66,13 @@
   </p>
   <!-- Status filter quick chips -->
   <div class="d-flex gap-2 flex-wrap">
-    {% for key, (label, color) in DOCUMENT_STATUSES.items() %}
+    {% for key, (label, color, icon) in DOCUMENT_STATUSES.items() %}
     {% set cnt = documents | selectattr('status', 'eq', key) | list | length %}
     {% if cnt > 0 %}
     <a href="{{ url_for('documents.list_documents', status=key) }}"
        class="badge text-decoration-none bg-{{ color }} {% if status_filter != key %}opacity-75{% endif %}"
        style="font-size:11.5px;cursor:pointer;">
-      {{ label }} {{ cnt }}
+      <i class="bi bi-{{ icon }} me-1"></i>{{ label }} {{ cnt }}
     </a>
     {% endif %}
     {% endfor %}
@@ -95,7 +95,7 @@
         <div class="doc-card-number">{{ doc.number or doc.type_label() }}</div>
         <div class="doc-card-title text-truncate-2">{{ doc.title }}</div>
         <div class="doc-card-meta">
-          <span class="badge bg-{{ si[1] }}">{{ si[0] }}</span>
+          <span class="badge bg-{{ si[1] }}"><i class="bi bi-{{ si[2] }} me-1"></i>{{ si[0] }}</span>
           {% if doc.rubric %}
           <span class="badge bg-light text-dark border" style="font-size:11px;">
             <i class="bi bi-folder me-1"></i>{{ doc.rubric.code }} · {{ doc.rubric.name }}
