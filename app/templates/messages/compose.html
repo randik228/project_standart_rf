@@ -14,30 +14,122 @@
   <div class="col-xl-8">
     <div class="card">
       <div class="card-header">
-        <i class="bi bi-pencil-square text-primary me-2"></i>Compose
+        <i class="bi bi-pencil-square text-primary me-2"></i>Новое сообщение
       </div>
       <div class="card-body p-4">
-        <form method="POST" action="{{ url_for('messages.compose') }}">
+        <form method="POST" action="{{ url_for('messages.compose') }}" id="composeForm"
+              onsubmit="return validateCompose(this)">
+
+          <!-- Получатель с живым поиском -->
           <div class="mb-3">
-            <label class="form-label">Получатель <span class="text-danger">*</span></label>
-            <select name="receiver_id" class="form-select" required>
-              <option value="">— Выберите получателя —</option>
-              {% set role_labels = {'admin':'Администратор','org':'Организация','expert':'Эксперт'} %}
-              {% for u in users %}
-              <option value="{{ u.id }}"
-                {% if prefill_to == u.id|string %}selected{% endif %}>
-                {{ u.full_name }} ({{ role_labels.get(u.role, u.role) }} · {{ u.organization }})
-              </option>
-              {% endfor %}
-            </select>
+            <label class="form-label fw-semibold">
+              Получатель <span class="text-danger">*</span>
+            </label>
+            <input type="hidden" name="receiver_id" id="receiverIdInput"
+                   value="{{ prefill_to }}">
+
+            <!-- Фильтр по роли -->
+            <div class="d-flex gap-1 mb-2" id="roleFilters">
+              <button type="button" class="btn btn-sm btn-primary role-filter-btn" data-role="all">
+                Все
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary role-filter-btn" data-role="admin">
+                <i class="bi bi-shield-check me-1"></i>Кураторы
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary role-filter-btn" data-role="org">
+                <i class="bi bi-building me-1"></i>Организации
+              </button>
+              <button type="button" class="btn btn-sm btn-outline-secondary role-filter-btn" data-role="expert">
+                <i class="bi bi-person-badge me-1"></i>Эксперты
+              </button>
+            </div>
+
+            <!-- Поле поиска -->
+            <div class="recipient-wrap position-relative">
+              <div class="input-group">
+                <span class="input-group-text bg-white">
+                  <i class="bi bi-search text-muted" style="font-size:13px;"></i>
+                </span>
+                <input type="text" id="recipientSearch" class="form-control border-start-0"
+                       placeholder="Начните вводить имя получателя…"
+                       autocomplete="off">
+                <button type="button" id="clearRecipient" class="btn btn-outline-secondary"
+                        style="display:none;" title="Очистить">
+                  <i class="bi bi-x-lg" style="font-size:11px;"></i>
+                </button>
+              </div>
+
+              <!-- Dropdown список -->
+              <div id="recipientDropdown"
+                   class="shadow border rounded bg-white"
+                   style="display:none;position:absolute;top:calc(100% + 4px);
+                          left:0;right:0;z-index:500;max-height:280px;overflow-y:auto;">
+                {% set role_colors = {'admin':'#7c3aed','org':'#2563eb','expert':'#059669'} %}
+                {% set role_labels = {'admin':'Куратор ЭС','org':'Организация','expert':'Эксперт'} %}
+                {% set role_badge  = {'admin':'purple','org':'primary','expert':'success'} %}
+                {% for u in users %}
+                <div class="recipient-option px-3 py-2"
+                     data-id="{{ u.id }}"
+                     data-name="{{ u.full_name }}"
+                     data-role="{{ u.role }}"
+                     data-org="{{ u.organization or '' }}"
+                     style="cursor:pointer;">
+                  <div class="d-flex align-items-center gap-2">
+                    <div style="width:32px;height:32px;border-radius:50%;flex-shrink:0;
+                                display:flex;align-items:center;justify-content:center;
+                                font-size:11px;font-weight:700;color:#fff;
+                                background:{{ role_colors.get(u.role,'#6b7280') }};">
+                      {{ u.get_initials() }}
+                    </div>
+                    <div class="flex-grow-1 min-w-0">
+                      <div class="fw-semibold text-truncate" style="font-size:13px;">
+                        {{ u.full_name }}
+                      </div>
+                      <div class="text-muted text-truncate" style="font-size:11.5px;">
+                        {{ u.organization or '—' }}
+                      </div>
+                    </div>
+                    <span class="badge bg-{{ role_badge.get(u.role,'secondary') }}"
+                          style="font-size:10px;white-space:nowrap;">
+                      {{ role_labels.get(u.role, u.role) }}
+                    </span>
+                  </div>
+                </div>
+                {% endfor %}
+                <div id="recipientNoMatch" class="px-3 py-2 text-muted"
+                     style="font-size:13px;display:none;">
+                  <i class="bi bi-person-x me-1"></i>Ничего не найдено
+                </div>
+              </div>
+            </div>
+
+            <!-- Выбранный получатель -->
+            <div id="selectedRecipient" style="display:none;" class="mt-2">
+              <div class="d-flex align-items-center gap-2 px-3 py-2 rounded border"
+                   style="background:#f0fdf4;border-color:#86efac!important;">
+                <div id="selAvatar"
+                     style="width:30px;height:30px;border-radius:50%;flex-shrink:0;
+                            display:flex;align-items:center;justify-content:center;
+                            font-size:10px;font-weight:700;color:#fff;background:#059669;">
+                </div>
+                <div class="flex-grow-1" style="font-size:13px;">
+                  <span id="selName" class="fw-semibold"></span>
+                  <span id="selOrg" class="text-muted ms-1" style="font-size:12px;"></span>
+                </div>
+                <span id="selBadge" class="badge"></span>
+              </div>
+            </div>
           </div>
+
           <div class="mb-3">
-            <label class="form-label">Тема</label>
+            <label class="form-label fw-semibold">Тема</label>
             <input type="text" name="subject" class="form-control"
                    placeholder="Тема сообщения…">
           </div>
           <div class="mb-4">
-            <label class="form-label">Текст сообщения <span class="text-danger">*</span></label>
+            <label class="form-label fw-semibold">
+              Текст сообщения <span class="text-danger">*</span>
+            </label>
             <textarea name="text" class="form-control" rows="7"
                       placeholder="Введите текст сообщения…" required></textarea>
           </div>
@@ -54,4 +146,157 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const ROLE_COLORS = { admin:'#7c3aed', org:'#2563eb', expert:'#059669' };
+const ROLE_LABELS = { admin:'Куратор ЭС', org:'Организация', expert:'Эксперт' };
+const ROLE_BADGE  = { admin:'bg-purple', org:'bg-primary', expert:'bg-success' };
+// bootstrap doesn't have bg-purple by default, map to custom
+const ROLE_BADGE_CLS = { admin:'bg-secondary', org:'bg-primary', expert:'bg-success' };
+
+const searchInput   = document.getElementById('recipientSearch');
+const idInput       = document.getElementById('receiverIdInput');
+const dropdown      = document.getElementById('recipientDropdown');
+const noMatch       = document.getElementById('recipientNoMatch');
+const selectedBox   = document.getElementById('selectedRecipient');
+const clearBtn      = document.getElementById('clearRecipient');
+const options       = Array.from(document.querySelectorAll('.recipient-option'));
+
+let activeRole = 'all';
+
+// Pre-fill if ?to= param was set
+const prefillId = idInput.value;
+if (prefillId) {
+  const opt = options.find(o => o.dataset.id === prefillId);
+  if (opt) selectRecipient(opt, false);
+}
+
+/* ── Role filter buttons ─────────────────────── */
+document.querySelectorAll('.role-filter-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    activeRole = btn.dataset.role;
+    document.querySelectorAll('.role-filter-btn').forEach(b => {
+      b.classList.toggle('btn-primary', b.dataset.role === activeRole);
+      b.classList.toggle('btn-outline-secondary', b.dataset.role !== activeRole);
+    });
+    filterOptions(searchInput.value);
+    if (!idInput.value) {
+      showDropdown();
+    }
+  });
+});
+
+/* ── Search & filter ─────────────────────────── */
+function filterOptions(q) {
+  const term = q.toLowerCase().trim();
+  let visible = 0;
+  options.forEach(opt => {
+    const nameMatch = opt.dataset.name.toLowerCase().includes(term);
+    const orgMatch  = opt.dataset.org.toLowerCase().includes(term);
+    const roleMatch = activeRole === 'all' || opt.dataset.role === activeRole;
+    const show = (nameMatch || orgMatch) && roleMatch;
+    opt.style.display = show ? 'flex' : 'none';
+    if (show) visible++;
+  });
+  noMatch.style.display = visible === 0 ? 'block' : 'none';
+}
+
+function showDropdown() {
+  filterOptions(searchInput.value);
+  dropdown.style.display = 'block';
+}
+function hideDropdown() {
+  setTimeout(() => { dropdown.style.display = 'none'; }, 150);
+}
+
+searchInput.addEventListener('focus', showDropdown);
+searchInput.addEventListener('blur',  hideDropdown);
+searchInput.addEventListener('input', () => {
+  idInput.value = '';
+  clearSelection();
+  filterOptions(searchInput.value);
+  dropdown.style.display = 'block';
+});
+
+/* ── Select recipient ────────────────────────── */
+function selectRecipient(opt, focus = true) {
+  idInput.value = opt.dataset.id;
+  searchInput.value = '';
+  dropdown.style.display = 'none';
+
+  // Fill selected card
+  const initials = opt.dataset.name.split(' ').slice(0,2).map(p => p[0]).join('').toUpperCase();
+  document.getElementById('selAvatar').textContent = initials;
+  document.getElementById('selAvatar').style.background = ROLE_COLORS[opt.dataset.role] || '#6b7280';
+  document.getElementById('selName').textContent = opt.dataset.name;
+  document.getElementById('selOrg').textContent  = opt.dataset.org ? '· ' + opt.dataset.org : '';
+  const badge = document.getElementById('selBadge');
+  badge.textContent = ROLE_LABELS[opt.dataset.role] || opt.dataset.role;
+  badge.className = 'badge ' + (ROLE_BADGE_CLS[opt.dataset.role] || 'bg-secondary');
+
+  selectedBox.style.display = 'block';
+  clearBtn.style.display = 'inline-flex';
+  searchInput.placeholder = 'Получатель выбран';
+  searchInput.classList.remove('is-invalid');
+  if (focus) searchInput.blur();
+}
+
+function clearSelection() {
+  idInput.value = '';
+  selectedBox.style.display = 'none';
+  clearBtn.style.display = 'none';
+  searchInput.placeholder = 'Начните вводить имя получателя…';
+}
+
+options.forEach(opt => {
+  opt.addEventListener('mousedown', e => { e.preventDefault(); selectRecipient(opt); });
+  opt.addEventListener('mouseover', () => {
+    options.forEach(o => o.style.background = '');
+    opt.style.background = '#eff6ff';
+  });
+  opt.addEventListener('mouseout', () => { opt.style.background = ''; });
+});
+
+clearBtn.addEventListener('click', () => {
+  clearSelection();
+  searchInput.value = '';
+  searchInput.focus();
+});
+
+/* ── Keyboard navigation ─────────────────────── */
+searchInput.addEventListener('keydown', e => {
+  const visible = options.filter(o => o.style.display !== 'none');
+  const cur = visible.findIndex(o => o.style.background === 'rgb(239, 246, 255)');
+  if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    const next = visible[cur + 1] || visible[0];
+    if (next) { options.forEach(o => o.style.background = ''); next.style.background = '#eff6ff'; next.scrollIntoView({block:'nearest'}); }
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    const prev = visible[cur - 1] || visible[visible.length - 1];
+    if (prev) { options.forEach(o => o.style.background = ''); prev.style.background = '#eff6ff'; prev.scrollIntoView({block:'nearest'}); }
+  } else if (e.key === 'Enter') {
+    e.preventDefault();
+    const hl = visible.find(o => o.style.background === 'rgb(239, 246, 255)') || visible[0];
+    if (hl) selectRecipient(hl);
+  } else if (e.key === 'Escape') {
+    dropdown.style.display = 'none';
+  }
+});
+
+/* ── Validation ──────────────────────────────── */
+function validateCompose(form) {
+  if (!idInput.value) {
+    searchInput.classList.add('is-invalid');
+    searchInput.placeholder = 'Выберите получателя из списка';
+    searchInput.focus();
+    showDropdown();
+    setTimeout(() => searchInput.classList.remove('is-invalid'), 2000);
+    return false;
+  }
+  return true;
+}
+</script>
 {% endblock %}

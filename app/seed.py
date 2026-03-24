@@ -11,9 +11,10 @@ def seed_data():
     print("[seed] Заполнение базы демо-данными...")
 
     # ── Users ─────────────────────────────────────────────────────────────────
+    # rubric_id assigned after rubrics are flushed (see below)
     admin = User(username='admin', email='admin@standart-rf.ru', password='admin123',
-                 role='admin', full_name='Администратор Системы',
-                 organization='Портал «Стандарт РФ»', position='Системный администратор')
+                 role='admin', full_name='Куратор Экспертного Сообщества',
+                 organization='Портал «Стандарт РФ»', position='Куратор ЭС')
 
     org1 = User(username='mintrans', email='mintrans@gov.ru', password='demo123',
                 role='org', full_name='Иванов Сергей Николаевич',
@@ -49,6 +50,7 @@ def seed_data():
     db.session.flush()
 
     # ── Rubrics ───────────────────────────────────────────────────────────────
+    # (rubric_id for admin/orgs is set after flush below)
     rubrics_raw = [
         ('ИТС',  'Интеллектуальные транспортные системы',
          'Стандарты и методические документы в области разработки, внедрения и эксплуатации ИТС'),
@@ -68,6 +70,14 @@ def seed_data():
         rubrics.append(r)
     db.session.flush()
 
+    # Assign rubrics: admin → ИТС (rubrics[0])
+    #                 org1  → ИТС (rubrics[0])
+    #                 org2  → УДД (rubrics[2])
+    admin.rubric_id = rubrics[0].id
+    org1.rubric_id  = rubrics[0].id
+    org2.rubric_id  = rubrics[2].id
+    db.session.flush()
+
     # ── Documents ─────────────────────────────────────────────────────────────
     docs_raw = [
         dict(title='ГОСТ Р 58948-2020. ИТС. Требования к информационному взаимодействию подсистем',
@@ -79,7 +89,7 @@ def seed_data():
 
         dict(title='МР-15-2024. Методические рекомендации по внедрению систем мониторинга дорожного покрытия',
              number='МР-15-2024', rubric=rubrics[3], author=org1,
-             status='discussion', doc_type='methodical',
+             status='published', doc_type='methodical',
              desc='Методические рекомендации определяют порядок внедрения автоматизированных систем '
                   'непрерывного мониторинга состояния дорожного покрытия с использованием сенсорных сетей.',
              deadline=date.today() + timedelta(days=21), days_ago=30),
@@ -107,7 +117,7 @@ def seed_data():
 
         dict(title='ГОСТ Р 57576-2024. ЦУДД. Требования к программно-аппаратному комплексу',
              number='ГОСТ Р 57576-2024', rubric=rubrics[2], author=org2,
-             status='discussion', doc_type='standard',
+             status='published', doc_type='standard',
              desc='Настоящий стандарт устанавливает требования к составу и характеристикам '
                   'программно-аппаратного комплекса центров управления дорожным движением.',
              deadline=date.today() + timedelta(days=45), days_ago=15),
@@ -163,16 +173,14 @@ def seed_data():
 
     # ── Document Stages ───────────────────────────────────────────────────────
     STAGES_TEMPLATE = [
-        (1, 'Разработка',          'Подготовка и оформление текста документа'),
-        (2, 'Публикация',          'Размещение документа на портале'),
-        (3, 'Открытое обсуждение', 'Сбор замечаний и предложений от экспертного сообщества'),
-        (4, 'Сводка предложений',  'Систематизация и обработка поступивших замечаний'),
-        (5, 'Согласование',        'Согласование с заинтересованными федеральными органами'),
-        (6, 'Утверждение',         'Официальное утверждение и введение в действие'),
+        (1, 'Черновик',     'Подготовка и оформление текста документа организацией'),
+        (2, 'Публикация',   'Размещение документа на портале. Открытие доступа к комментариям от Экспертов'),
+        (3, 'Согласование', 'Согласование с заинтересованными федеральными органами'),
+        (4, 'Утверждение',  'Официальное утверждение и введение в действие'),
     ]
     STATUS_ACTIVE_STAGE = {
-        'draft': 1, 'published': 2, 'discussion': 3,
-        'review': 5, 'approved': 6, 'rejected': 3,
+        'draft': 1, 'published': 2,
+        'review': 3, 'approved': 4, 'rejected': 3,
     }
 
     for doc in docs:

@@ -23,8 +23,8 @@
     <div class="stat-card">
       <div class="stat-icon orange"><i class="bi bi-chat-square-dots"></i></div>
       <div>
-        <div class="stat-value">{{ my_docs | selectattr('status', 'eq', 'discussion') | list | length }}</div>
-        <div class="stat-label">На обсуждении</div>
+        <div class="stat-value">{{ my_docs | selectattr('status', 'eq', 'published') | list | length }}</div>
+        <div class="stat-label">Опубликовано</div>
       </div>
     </div>
   </div>

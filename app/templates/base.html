@@ -52,12 +52,8 @@
 
     {% if session.role == 'admin' %}
     <a href="{{ url_for('admin.users') }}"
-       class="nav-link {% if request.endpoint == 'admin.users' %}active{% endif %}">
+       class="nav-link {% if request.endpoint in ('admin.users','admin.add_to_rubric','admin.remove_from_rubric') %}active{% endif %}">
       <i class="bi bi-people"></i><span>Пользователи</span>
-    </a>
-    <a href="{{ url_for('admin.rubrics') }}"
-       class="nav-link {% if request.endpoint == 'admin.rubrics' %}active{% endif %}">
-      <i class="bi bi-tags"></i><span>Рубрики и эксперты</span>
     </a>
     <a href="{{ url_for('admin.monitoring') }}"
        class="nav-link {% if request.endpoint == 'admin.monitoring' %}active{% endif %}">

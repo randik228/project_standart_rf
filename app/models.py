@@ -3,12 +3,11 @@ from app import db
 
 
 DOCUMENT_STATUSES = {
-    'draft':       ('Черновик',        'secondary', 'pencil'),
-    'published':   ('Опубликован',     'primary',   'eye'),
-    'discussion':  ('На обсуждении',   'warning',   'chat-square-dots'),
-    'review':      ('На согласовании', 'info',      'hourglass-split'),
-    'approved':    ('Утверждён',       'success',   'check-circle-fill'),
-    'rejected':    ('Отклонён',        'danger',    'x-circle-fill'),
+    'draft':     ('Черновик',     'secondary', 'pencil'),
+    'published': ('Публикация',   'primary',   'upload'),
+    'review':    ('Согласование', 'info',      'clipboard-check'),
+    'approved':  ('Утверждён',    'success',   'check-circle-fill'),
+    'rejected':  ('Отклонён',     'danger',    'x-circle-fill'),
 }
 
 DOCUMENT_TYPES = {
@@ -44,7 +43,10 @@ class User(db.Model):
     organization = db.Column(db.String(300))
     position     = db.Column(db.String(200))
     created_at   = db.Column(db.DateTime, default=datetime.utcnow)
+    phone        = db.Column(db.String(20))
     is_active    = db.Column(db.Boolean, default=True)
+    # For admin: rubric they manage; for org: rubric they belong to
+    rubric_id    = db.Column(db.Integer, db.ForeignKey('rubrics.id'), nullable=True)
 
     documents     = db.relationship('Document', backref='author', lazy=True,
                                     foreign_keys='Document.author_id')
@@ -60,7 +62,7 @@ class User(db.Model):
         return self.username[:2].upper()
 
     def role_label(self):
-        return {'admin': 'Администратор', 'org': 'Организация', 'expert': 'Эксперт'}.get(self.role, self.role)
+        return {'admin': 'Куратор ЭС', 'org': 'Организация', 'expert': 'Эксперт'}.get(self.role, self.role)
 
     def unread_notifications(self):
         return Notification.query.filter_by(user_id=self.id, is_read=False).count()

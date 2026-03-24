@@ -10,12 +10,10 @@ from app.utils import login_required, role_required, get_current_user
 documents_bp = Blueprint('documents', __name__, url_prefix='/documents')
 
 STAGES_TEMPLATE = [
-    (1, 'Разработка',          'Подготовка и оформление текста документа'),
-    (2, 'Публикация',          'Размещение документа на портале'),
-    (3, 'Открытое обсуждение', 'Сбор замечаний и предложений от экспертного сообщества'),
-    (4, 'Сводка предложений',  'Систематизация и обработка поступивших замечаний'),
-    (5, 'Согласование',        'Согласование с заинтересованными федеральными органами'),
-    (6, 'Утверждение',         'Официальное утверждение и введение в действие'),
+    (1, 'Черновик',     'Подготовка и оформление текста документа организацией'),
+    (2, 'Публикация',   'Размещение документа на портале. Открытие доступа к комментариям от Экспертов'),
+    (3, 'Согласование', 'Согласование с заинтересованными федеральными органами'),
+    (4, 'Утверждение',  'Официальное утверждение и введение в действие'),
 ]
 
 
@@ -144,19 +142,39 @@ def set_status(doc_id):
         return redirect(url_for('documents.detail', doc_id=doc_id))
 
     new_status = request.form.get('status')
-    valid = ['draft', 'published', 'discussion', 'review', 'approved', 'rejected']
+    valid = ['draft', 'published', 'review', 'approved', 'rejected']
     if new_status not in valid:
         flash('Недопустимый статус.', 'danger')
         return redirect(url_for('documents.detail', doc_id=doc_id))
 
-    # Require uploaded file before publishing or opening discussion
-    if new_status in ('published', 'discussion') and not doc.latest_version():
+    # Role-based transition rules
+    admin_only = {'approved', 'rejected'}
+
+    # Allowed org transitions: draft→published, published→review, rejected→published
+    ORG_TRANSITIONS = {
+        'draft':     {'published'},
+        'published': {'review'},
+        'rejected':  {'published'},
+    }
+
+    if new_status in admin_only and user.role != 'admin':
+        flash('Утверждать и отклонять документы может только Куратор ЭС.', 'danger')
+        return redirect(url_for('documents.detail', doc_id=doc_id))
+
+    if user.role == 'org':
+        allowed_targets = ORG_TRANSITIONS.get(doc.status, set())
+        if new_status not in allowed_targets:
+            flash('Недостаточно прав или недопустимый переход статуса.', 'danger')
+            return redirect(url_for('documents.detail', doc_id=doc_id))
+
+    # Require uploaded file before publishing
+    if new_status == 'published' and not doc.latest_version():
         flash('Нельзя опубликовать документ без загруженного файла. Загрузите файл в разделе «Версии».', 'warning')
         return redirect(url_for('documents.detail', doc_id=doc_id))
 
     STATUS_STAGE = {
-        'draft': 1, 'published': 2, 'discussion': 3,
-        'review': 5, 'approved': 6, 'rejected': 3,
+        'draft': 1, 'published': 2,
+        'review': 3, 'approved': 4, 'rejected': 3,
     }
     active_order = STATUS_STAGE.get(new_status, 1)
 
@@ -186,6 +204,10 @@ def set_status(doc_id):
 def add_comment(doc_id):
     user = get_current_user()
     doc  = Document.query.get_or_404(doc_id)
+
+    if user.role == 'org':
+        flash('Организации не могут подавать замечания. Используйте ответ разработчика.', 'warning')
+        return redirect(url_for('documents.detail', doc_id=doc_id))
 
     ctype              = request.form.get('comment_type', 'remark')
     structural_element = request.form.get('structural_element', '').strip()
@@ -292,3 +314,18 @@ def upload_version(doc_id):
     db.session.commit()
     flash(f'Версия {version_number} успешно загружена.', 'success')
     return redirect(url_for('documents.detail', doc_id=doc_id))
+
+
+@documents_bp.route('/<int:doc_id>/delete', methods=['POST'])
+@role_required('admin')
+def delete_document(doc_id):
+    doc = Document.query.get_or_404(doc_id)
+    # Delete related records
+    Comment.query.filter_by(document_id=doc_id).delete()
+    DocumentVersion.query.filter_by(document_id=doc_id).delete()
+    DocumentStage.query.filter_by(document_id=doc_id).delete()
+    Notification.query.filter(Notification.link == f'/documents/{doc_id}').delete()
+    db.session.delete(doc)
+    db.session.commit()
+    flash(f'Документ «{doc.title[:60]}» удалён.', 'info')
+    return redirect(url_for('documents.list_documents'))
