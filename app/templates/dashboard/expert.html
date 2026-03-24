@@ -1,0 +1,157 @@
+{% extends 'base.html' %}
+{% block title %}Дашборд эксперта — Стандарт РФ{% endblock %}
+{% block page_title %}Кабинет эксперта{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Кабинет эксперта</h1>
+  <p>{{ user.organization }} · {{ user.position }}</p>
+</div>
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon purple"><i class="bi bi-folder2-open"></i></div>
+      <div>
+        <div class="stat-value">{{ my_rubrics | length }}</div>
+        <div class="stat-label">Моих рубрик</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon orange"><i class="bi bi-file-earmark-text"></i></div>
+      <div>
+        <div class="stat-value">{{ my_docs | length }}</div>
+        <div class="stat-label">Документов к рассмотрению</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="bi bi-chat-square-text"></i></div>
+      <div>
+        <div class="stat-value">{{ my_comments | length }}</div>
+        <div class="stat-label">Моих замечаний</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon green"><i class="bi bi-check2-circle"></i></div>
+      <div>
+        <div class="stat-value">{{ my_comments | selectattr('status', 'eq', 'accepted') | list | length }}</div>
+        <div class="stat-label">Принято замечаний</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Docs to review -->
+  <div class="col-xl-8">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-eye text-primary me-2"></i>Документы для рассмотрения</span>
+        <a href="{{ url_for('documents.list_documents') }}" class="btn btn-sm btn-outline-primary">
+          Все документы
+        </a>
+      </div>
+      <div class="card-body p-0">
+        {% if my_docs %}
+        <div class="list-group list-group-flush">
+          {% for doc in my_docs %}
+          {% set si = doc.status_info() %}
+          <a href="{{ url_for('documents.detail', doc_id=doc.id) }}"
+             class="list-group-item list-group-item-action px-4 py-3">
+            <div class="d-flex align-items-start gap-3">
+              <div class="mt-1 flex-shrink-0">
+                <span class="badge bg-{{ si[1] }}">{{ si[0] }}</span>
+              </div>
+              <div class="flex-grow-1 min-w-0">
+                <div class="fw-semibold text-truncate" style="font-size:13.5px;">{{ doc.title }}</div>
+                <div class="d-flex gap-3 mt-1 text-muted" style="font-size:12px;">
+                  <span>{{ doc.number or '—' }}</span>
+                  {% if doc.rubric %}<span><i class="bi bi-folder me-1"></i>{{ doc.rubric.name }}</span>{% endif %}
+                  {% if doc.discussion_deadline %}
+                  <span><i class="bi bi-calendar me-1"></i>до {{ doc.discussion_deadline.strftime('%d.%m.%Y') }}</span>
+                  {% endif %}
+                </div>
+              </div>
+              {% set nc = doc.new_comments_count() %}
+              {% if nc > 0 %}
+              <span class="badge bg-danger align-self-center">{{ nc }} новых</span>
+              {% endif %}
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-inbox" style="font-size:36px;opacity:.3;"></i>
+          <p class="mt-2 mb-0">Нет документов для рассмотрения</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- My rubrics + my comments -->
+  <div class="col-xl-4">
+    <!-- Rubrics -->
+    <div class="card mb-3">
+      <div class="card-header">
+        <i class="bi bi-tags text-primary me-2"></i>Мои рубрики
+      </div>
+      <div class="card-body p-0">
+        {% for re in my_rubrics %}
+        <a href="{{ url_for('rubrics.detail', rubric_id=re.rubric_id) }}"
+           class="d-flex align-items-center gap-3 px-4 py-3 text-decoration-none text-dark
+                  border-bottom list-group-item-action">
+          <div style="width:36px;height:36px;background:#eff6ff;border-radius:9px;
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:11px;font-weight:700;color:#2563eb;flex-shrink:0;">
+            {{ re.rubric.code }}
+          </div>
+          <div class="flex-grow-1 min-w-0">
+            <div class="fw-semibold" style="font-size:13px;">{{ re.rubric.name }}</div>
+            <div class="text-muted" style="font-size:11.5px;">{{ re.rubric.document_count() }} документов</div>
+          </div>
+          <i class="bi bi-chevron-right text-muted" style="font-size:12px;"></i>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- My recent comments -->
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-chat-square-text text-primary me-2"></i>Мои последние замечания
+      </div>
+      <div class="card-body p-0">
+        {% if my_comments %}
+        {% for c in my_comments %}
+        {% set ti = c.type_info() %}
+        {% set si = c.status_info() %}
+        <div class="px-4 py-3 border-bottom" style="font-size:13px;">
+          <div class="d-flex gap-2 mb-1">
+            <span class="badge bg-{{ ti[1] }}">{{ ti[0] }}</span>
+            <span class="badge bg-{{ si[1] }}">{{ si[0] }}</span>
+          </div>
+          <div class="text-truncate text-muted" style="font-size:12px;">
+            {{ c.document.number or c.document.title[:35] ~ '…' }}
+          </div>
+          <div class="text-truncate mt-1" style="font-size:12.5px;">{{ c.text[:70] }}{% if c.text|length > 70 %}…{% endif %}</div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="text-center py-4 text-muted" style="font-size:13px;">
+          Замечаний пока нет
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

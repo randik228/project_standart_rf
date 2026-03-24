@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+{% block title %}Рубрики и эксперты — Стандарт РФ{% endblock %}
+{% block page_title %}Рубрики и эксперты{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Рубрики и эксперты</h1>
+  <p>Управление рубрикатором и составом экспертного сообщества</p>
+</div>
+
+{% for rubric in rubrics %}
+<div class="card mb-4">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <div class="d-flex align-items-center gap-3">
+      <div style="width:40px;height:40px;background:#eff6ff;border-radius:10px;
+                  display:flex;align-items:center;justify-content:center;
+                  font-size:12px;font-weight:700;color:#2563eb;flex-shrink:0;">
+        {{ rubric.code }}
+      </div>
+      <div>
+        <div class="fw-bold" style="font-size:15px;">{{ rubric.name }}</div>
+        <div class="text-muted" style="font-size:12px;">
+          {{ rubric.document_count() }} документов · {{ rubric.expert_count() }} экспертов
+        </div>
+      </div>
+    </div>
+    <!-- Assign expert form -->
+    <form method="POST" action="{{ url_for('admin.assign_expert') }}" class="d-flex gap-2">
+      <input type="hidden" name="rubric_id" value="{{ rubric.id }}">
+      <select name="user_id" class="form-select form-select-sm" style="width:220px;">
+        <option value="">— Добавить эксперта —</option>
+        {% for e in experts %}
+        <option value="{{ e.id }}">{{ e.full_name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="btn btn-sm btn-primary">
+        <i class="bi bi-plus-lg me-1"></i>Назначить
+      </button>
+    </form>
+  </div>
+  <div class="card-body">
+    {% if rubric.description %}
+    <p class="text-muted mb-3" style="font-size:13px;">{{ rubric.description }}</p>
+    {% endif %}
+
+    {% set rubric_assignments = rubric.expert_assignments %}
+    {% if rubric_assignments %}
+    <div class="row g-2">
+      {% for re in rubric_assignments %}
+      <div class="col-sm-6 col-xl-4">
+        <div class="d-flex align-items-center gap-2 p-3 rounded border"
+             style="background:#f9fafb;">
+          <div class="user-avatar" style="width:36px;height:36px;font-size:12px;
+               background:#059669;flex-shrink:0;">
+            {{ re.user.get_initials() }}
+          </div>
+          <div class="flex-grow-1 min-w-0">
+            <div class="fw-semibold text-truncate" style="font-size:13px;">{{ re.user.full_name }}</div>
+            <div class="text-muted text-truncate" style="font-size:11.5px;">{{ re.user.organization }}</div>
+          </div>
+          <form method="POST" action="{{ url_for('admin.unassign_expert', re_id=re.id) }}"
+                class="flex-shrink-0">
+            <button type="submit" class="btn btn-sm btn-outline-danger" title="Удалить из рубрики"
+                    style="padding:2px 7px;">
+              <i class="bi bi-x-lg" style="font-size:11px;"></i>
+            </button>
+          </form>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="text-muted" style="font-size:13px;">
+      <i class="bi bi-info-circle me-1"></i>Экспертов пока не назначено
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

@@ -1,0 +1,53 @@
+{% extends 'base.html' %}
+{% block title %}{{ msg.subject }} — Стандарт РФ{% endblock %}
+{% block page_title %}Сообщение{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb" style="font-size:13px;">
+    <li class="breadcrumb-item"><a href="{{ url_for('messages.index') }}">Сообщения</a></li>
+    <li class="breadcrumb-item active">{{ msg.subject or '(без темы)' }}</li>
+  </ol>
+</nav>
+
+<div class="row justify-content-center">
+  <div class="col-xl-8">
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span class="fw-semibold" style="font-size:15px;">{{ msg.subject or '(без темы)' }}</span>
+        <span class="text-muted" style="font-size:12px;">
+          {{ msg.created_at.strftime('%d.%m.%Y %H:%M') }}
+        </span>
+      </div>
+      <div class="card-body p-4">
+        <div class="d-flex align-items-center gap-3 mb-4 pb-3 border-bottom">
+          <div class="user-avatar" style="width:42px;height:42px;font-size:13px;background:#2563eb;">
+            {{ msg.sender.get_initials() }}
+          </div>
+          <div>
+            <div class="fw-semibold" style="font-size:14px;">{{ msg.sender.full_name }}</div>
+            <div class="text-muted" style="font-size:12.5px;">
+              {{ msg.sender.organization }} · {{ msg.sender.position }}
+            </div>
+          </div>
+          <div class="ms-auto text-muted" style="font-size:13px;">
+            <i class="bi bi-arrow-right me-1"></i>
+            <strong>{{ msg.receiver.full_name }}</strong>
+          </div>
+        </div>
+
+        <div style="font-size:14px;line-height:1.75;white-space:pre-wrap;color:#1f2937;">{{ msg.text }}</div>
+      </div>
+      <div class="card-footer bg-transparent d-flex gap-2">
+        <a href="{{ url_for('messages.compose') }}?to={{ msg.sender_id }}"
+           class="btn btn-primary btn-sm">
+          <i class="bi bi-reply me-1"></i>Ответить
+        </a>
+        <a href="{{ url_for('messages.index') }}" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-arrow-left me-1"></i>Назад
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

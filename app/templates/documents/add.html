@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Новый документ — Стандарт РФ{% endblock %}
+{% block page_title %}Добавление документа{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb" style="font-size:13px;">
+    <li class="breadcrumb-item"><a href="{{ url_for('documents.list_documents') }}">Документы</a></li>
+    <li class="breadcrumb-item active">Новый документ</li>
+  </ol>
+</nav>
+
+<div class="page-header">
+  <h1>Добавить документ</h1>
+  <p>Заполните реквизиты документа. Документ будет создан в статусе «Черновик».</p>
+</div>
+
+<div class="row justify-content-center">
+  <div class="col-xl-8">
+    <div class="card">
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('documents.add') }}">
+
+          <div class="mb-4">
+            <label class="form-label">Полное наименование документа <span class="text-danger">*</span></label>
+            <textarea name="title" class="form-control" rows="3"
+                      placeholder="напр. ГОСТ Р 58948-2020. Интеллектуальные транспортные системы. Требования к…"
+                      required></textarea>
+            <div class="form-text">Укажите полное официальное наименование документа</div>
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-sm-6">
+              <label class="form-label">Обозначение / номер документа</label>
+              <input type="text" name="number" class="form-control"
+                     placeholder="напр. ГОСТ Р 58948-2020, МР-15-2024">
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Тип документа</label>
+              <select name="doc_type" class="form-select">
+                {% for key, label in DOCUMENT_TYPES.items() %}
+                <option value="{{ key }}">{{ label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-4">
+            <div class="col-sm-6">
+              <label class="form-label">Рубрика</label>
+              <select name="rubric_id" class="form-select">
+                <option value="">— Без рубрики —</option>
+                {% for r in rubrics %}
+                <option value="{{ r.id }}">[{{ r.code }}] {{ r.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Срок обсуждения</label>
+              <input type="date" name="discussion_deadline" class="form-control">
+              <div class="form-text">Дата окончания приёма замечаний</div>
+            </div>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label">Аннотация / описание</label>
+            <textarea name="description" class="form-control" rows="4"
+                      placeholder="Краткое описание содержания и назначения документа…"></textarea>
+          </div>
+
+          <div class="p-3 rounded mb-4" style="background:#fffbeb;border:1px solid #fde68a;">
+            <div class="d-flex gap-2">
+              <i class="bi bi-info-circle text-warning mt-1"></i>
+              <div style="font-size:13px;">
+                <strong>Следующие шаги после создания:</strong><br>
+                После создания черновика — загрузите файл документа, затем опубликуйте его
+                и откройте обсуждение для сбора замечаний от экспертного сообщества.
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex gap-3">
+            <button type="submit" class="btn btn-primary px-4">
+              <i class="bi bi-plus-lg me-2"></i>Создать документ
+            </button>
+            <a href="{{ url_for('documents.list_documents') }}" class="btn btn-outline-secondary">
+              Отмена
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,186 @@
+{% extends 'base.html' %}
+{% block title %}Мониторинг — Стандарт РФ{% endblock %}
+{% block page_title %}Мониторинг{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Мониторинг</h1>
+  <p>Сводная аналитика по поступлению замечаний и статусам документов</p>
+</div>
+
+<!-- Top stats -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="bi bi-file-earmark-text"></i></div>
+      <div>
+        <div class="stat-value">{{ docs_stats | length }}</div>
+        <div class="stat-label">Всего документов</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon orange"><i class="bi bi-chat-square-dots"></i></div>
+      <div>
+        <div class="stat-value">
+          {{ docs_stats | sum(attribute='total_comments') }}
+        </div>
+        <div class="stat-label">Всего замечаний</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon red"><i class="bi bi-exclamation-circle"></i></div>
+      <div>
+        <div class="stat-value">{{ docs_stats | sum(attribute='new_comments') }}</div>
+        <div class="stat-label">Новых (не рассмотрено)</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon green"><i class="bi bi-people"></i></div>
+      <div>
+        <div class="stat-value">{{ total_experts }}</div>
+        <div class="stat-label">Экспертов / {{ total_orgs }} организаций</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Status breakdown + recent comments -->
+<div class="row g-3 mb-4">
+  <div class="col-xl-5">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-bar-chart text-primary me-2"></i>Документы по статусам
+      </div>
+      <div class="card-body">
+        {% for key, (label, color) in DOCUMENT_STATUSES.items() %}
+        {% set cnt = status_counts.get(key, 0) %}
+        {% set total = docs_stats | length %}
+        {% set pct = ((cnt / total * 100) | round(0) | int) if total > 0 else 0 %}
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span class="badge bg-{{ color }}">{{ label }}</span>
+            <span style="font-size:13px;font-weight:600;">{{ cnt }}</span>
+          </div>
+          <div class="progress" style="height:6px;border-radius:4px;">
+            <div class="progress-bar bg-{{ color }}" style="width:{{ pct }}%"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-xl-7">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-clock-history text-primary me-2"></i>Последние замечания
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0">
+          <thead>
+            <tr>
+              <th>Тип</th>
+              <th>Эксперт</th>
+              <th>Документ</th>
+              <th>Статус</th>
+              <th>Время</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in recent_comments %}
+            {% set ti = c.type_info() %}
+            {% set si = c.status_info() %}
+            <tr>
+              <td><span class="badge bg-{{ ti[1] }}">{{ ti[0] }}</span></td>
+              <td style="font-size:13px;">{{ c.author.full_name }}</td>
+              <td>
+                <a href="{{ url_for('documents.detail', doc_id=c.document_id) }}"
+                   class="text-decoration-none" style="font-size:12.5px;">
+                  {{ c.document.number or (c.document.title[:28] ~ '…') }}
+                </a>
+              </td>
+              <td><span class="badge bg-{{ si[1] }}">{{ si[0] }}</span></td>
+              <td class="text-muted" style="font-size:12px;">
+                {{ c.created_at.strftime('%d.%m %H:%M') }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Documents monitoring table -->
+<div class="card">
+  <div class="card-header">
+    <i class="bi bi-table text-primary me-2"></i>Мониторинг по документам
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Документ</th>
+          <th>Рубрика</th>
+          <th>Статус</th>
+          <th style="text-align:center;">Всего замечаний</th>
+          <th style="text-align:center;">Новых</th>
+          <th style="text-align:center;">Принято</th>
+          <th>Срок</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in docs_stats %}
+        {% set doc = row.doc %}
+        {% set si = doc.status_info() %}
+        <tr>
+          <td>
+            <div class="fw-semibold" style="font-size:13px;">{{ doc.title | truncate(50) }}</div>
+            <div class="text-muted" style="font-size:11.5px;">{{ doc.number or '—' }}</div>
+          </td>
+          <td>
+            {% if doc.rubric %}
+            <span class="badge bg-light text-dark border">{{ doc.rubric.code }}</span>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td><span class="badge bg-{{ si[1] }}">{{ si[0] }}</span></td>
+          <td style="text-align:center;font-weight:600;">{{ row.total_comments }}</td>
+          <td style="text-align:center;">
+            {% if row.new_comments > 0 %}
+            <span class="badge bg-danger">{{ row.new_comments }}</span>
+            {% else %}
+            <span class="text-muted">0</span>
+            {% endif %}
+          </td>
+          <td style="text-align:center;">
+            {% if row.accepted_comments > 0 %}
+            <span class="badge bg-success">{{ row.accepted_comments }}</span>
+            {% else %}
+            <span class="text-muted">0</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if doc.discussion_deadline %}
+            <span style="font-size:12px;color:#6b7280;">
+              {{ doc.discussion_deadline.strftime('%d.%m.%Y') }}
+            </span>
+            {% else %}<span class="text-muted">—</span>{% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('documents.detail', doc_id=doc.id) }}"
+               class="btn btn-sm btn-outline-primary">Открыть</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

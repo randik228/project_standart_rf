@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}Документы — Стандарт РФ{% endblock %}
+{% block page_title %}Реестр документов{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1>Реестр документов</h1>
+    <p>Нормативно-правовая, методическая и техническая документация</p>
+  </div>
+  {% if user.role in ('admin', 'org') %}
+  <a href="{{ url_for('documents.add') }}" class="btn btn-primary">
+    <i class="bi bi-plus-lg me-1"></i>Добавить документ
+  </a>
+  {% endif %}
+</div>
+
+<!-- Filters -->
+<form method="GET" action="{{ url_for('documents.list_documents') }}">
+  <div class="filters-bar">
+    <div class="flex-grow-1" style="min-width:200px;">
+      <input type="text" name="search" class="form-control" placeholder="🔍  Поиск по названию или номеру…"
+             value="{{ search }}">
+    </div>
+    <div style="min-width:160px;">
+      <select name="status" class="form-select">
+        <option value="">Все статусы</option>
+        {% for key, (label, _) in DOCUMENT_STATUSES.items() %}
+        <option value="{{ key }}" {% if status_filter == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="min-width:180px;">
+      <select name="rubric" class="form-select">
+        <option value="">Все рубрики</option>
+        {% for r in rubrics %}
+        <option value="{{ r.id }}" {% if rubric_filter == r.id|string %}selected{% endif %}>
+          [{{ r.code }}] {{ r.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="min-width:180px;">
+      <select name="type" class="form-select">
+        <option value="">Все типы</option>
+        {% for key, label in DOCUMENT_TYPES.items() %}
+        <option value="{{ key }}" {% if type_filter == key %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">
+      <i class="bi bi-funnel me-1"></i>Применить
+    </button>
+    {% if status_filter or rubric_filter or type_filter or search %}
+    <a href="{{ url_for('documents.list_documents') }}" class="btn btn-outline-secondary">
+      <i class="bi bi-x-lg"></i>
+    </a>
+    {% endif %}
+  </div>
+</form>
+
+<!-- Results count -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <p class="text-muted mb-0" style="font-size:13px;">
+    Найдено документов: <strong>{{ documents | length }}</strong>
+  </p>
+  <!-- Status filter quick chips -->
+  <div class="d-flex gap-2 flex-wrap">
+    {% for key, (label, color) in DOCUMENT_STATUSES.items() %}
+    {% set cnt = documents | selectattr('status', 'eq', key) | list | length %}
+    {% if cnt > 0 %}
+    <a href="{{ url_for('documents.list_documents', status=key) }}"
+       class="badge text-decoration-none bg-{{ color }} {% if status_filter != key %}opacity-75{% endif %}"
+       style="font-size:11.5px;cursor:pointer;">
+      {{ label }} {{ cnt }}
+    </a>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+
+<!-- Document list -->
+{% if documents %}
+  {% for doc in documents %}
+  {% set si = doc.status_info() %}
+  <a href="{{ url_for('documents.detail', doc_id=doc.id) }}" class="doc-card">
+    <div class="d-flex align-items-start gap-3">
+      <!-- Type icon -->
+      <div style="width:42px;height:42px;background:#f3f4f6;border-radius:10px;
+                  display:flex;align-items:center;justify-content:center;
+                  font-size:20px;color:#6b7280;flex-shrink:0;margin-top:2px;">
+        <i class="bi bi-file-earmark-text"></i>
+      </div>
+      <div class="flex-grow-1 min-w-0">
+        <div class="doc-card-number">{{ doc.number or doc.type_label() }}</div>
+        <div class="doc-card-title text-truncate-2">{{ doc.title }}</div>
+        <div class="doc-card-meta">
+          <span class="badge bg-{{ si[1] }}">{{ si[0] }}</span>
+          {% if doc.rubric %}
+          <span class="badge bg-light text-dark border" style="font-size:11px;">
+            <i class="bi bi-folder me-1"></i>{{ doc.rubric.code }} · {{ doc.rubric.name }}
+          </span>
+          {% endif %}
+          <span><i class="bi bi-building me-1"></i>{{ doc.author.organization }}</span>
+          <span><i class="bi bi-calendar3 me-1"></i>{{ doc.updated_at.strftime('%d.%m.%Y') }}</span>
+        </div>
+      </div>
+      <div class="d-flex flex-column align-items-end gap-2 flex-shrink-0">
+        <div class="d-flex align-items-center gap-1 text-muted" style="font-size:12.5px;">
+          <i class="bi bi-chat-square"></i>
+          <span>{{ doc.comments_count() }}</span>
+          {% if doc.new_comments_count() > 0 %}
+          <span class="badge bg-danger ms-1" style="font-size:10px;">{{ doc.new_comments_count() }} новых</span>
+          {% endif %}
+        </div>
+        {% if doc.discussion_deadline %}
+        <div class="text-muted" style="font-size:11.5px;">
+          <i class="bi bi-hourglass-split me-1"></i>до {{ doc.discussion_deadline.strftime('%d.%m.%Y') }}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+{% else %}
+<div class="card">
+  <div class="card-body text-center py-5 text-muted">
+    <i class="bi bi-search" style="font-size:40px;opacity:.25;"></i>
+    <p class="mt-3 mb-0">По вашему запросу документы не найдены.</p>
+    <a href="{{ url_for('documents.list_documents') }}" class="btn btn-sm btn-outline-primary mt-3">
+      Сбросить фильтры
+    </a>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,351 @@
+{% extends 'base.html' %}
+{% block title %}{{ doc.title }} — Стандарт РФ{% endblock %}
+{% block page_title %}Карточка документа{% endblock %}
+
+{% block content %}
+{% set si = doc.status_info() %}
+
+<!-- Breadcrumb -->
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb" style="font-size:13px;">
+    <li class="breadcrumb-item"><a href="{{ url_for('documents.list_documents') }}">Документы</a></li>
+    <li class="breadcrumb-item active">{{ doc.number or 'Карточка' }}</li>
+  </ol>
+</nav>
+
+<!-- Header card -->
+<div class="card mb-4">
+  <div class="card-body p-4">
+    <div class="d-flex align-items-start gap-3 flex-wrap">
+      <div class="flex-grow-1">
+        <div class="d-flex align-items-center gap-2 mb-2 flex-wrap">
+          <span class="badge bg-{{ si[1] }} fs-6">{{ si[0] }}</span>
+          <span class="badge bg-light text-dark border">{{ doc.type_label() }}</span>
+          {% if doc.rubric %}
+          <a href="{{ url_for('rubrics.detail', rubric_id=doc.rubric_id) }}"
+             class="badge bg-light text-dark border text-decoration-none">
+            <i class="bi bi-folder me-1"></i>{{ doc.rubric.code }} · {{ doc.rubric.name }}
+          </a>
+          {% endif %}
+        </div>
+        {% if doc.number %}
+        <div class="text-muted mb-1" style="font-size:12.5px;font-weight:600;letter-spacing:.04em;">
+          {{ doc.number }}
+        </div>
+        {% endif %}
+        <h2 style="font-size:19px;font-weight:700;line-height:1.4;margin-bottom:12px;">
+          {{ doc.title }}
+        </h2>
+        {% if doc.description %}
+        <p class="text-muted mb-0" style="font-size:13.5px;line-height:1.6;">{{ doc.description }}</p>
+        {% endif %}
+      </div>
+
+      <!-- Actions -->
+      <div class="d-flex flex-column gap-2 align-items-end flex-shrink-0">
+        {% if user.role in ('admin', 'org') and (doc.author_id == user.id or user.role == 'admin') %}
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="bi bi-gear me-1"></i>Управление
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+            <li><h6 class="dropdown-header">Изменить статус</h6></li>
+            {% if doc.status == 'draft' %}
+            <li>
+              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
+                <input type="hidden" name="status" value="published">
+                <button class="dropdown-item" type="submit">
+                  <i class="bi bi-upload me-2 text-primary"></i>Опубликовать
+                </button>
+              </form>
+            </li>
+            {% endif %}
+            {% if doc.status == 'published' %}
+            <li>
+              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
+                <input type="hidden" name="status" value="discussion">
+                <button class="dropdown-item" type="submit">
+                  <i class="bi bi-chat-square-dots me-2 text-warning"></i>Открыть обсуждение
+                </button>
+              </form>
+            </li>
+            {% endif %}
+            {% if doc.status == 'discussion' %}
+            <li>
+              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
+                <input type="hidden" name="status" value="review">
+                <button class="dropdown-item" type="submit">
+                  <i class="bi bi-clipboard-check me-2 text-info"></i>На согласование
+                </button>
+              </form>
+            </li>
+            {% endif %}
+            {% if doc.status == 'review' %}
+            <li>
+              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
+                <input type="hidden" name="status" value="approved">
+                <button class="dropdown-item" type="submit">
+                  <i class="bi bi-check-circle me-2 text-success"></i>Утвердить
+                </button>
+              </form>
+            </li>
+            <li>
+              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
+                <input type="hidden" name="status" value="rejected">
+                <button class="dropdown-item" type="submit">
+                  <i class="bi bi-x-circle me-2 text-danger"></i>Отклонить
+                </button>
+              </form>
+            </li>
+            {% endif %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {% if doc.latest_version() %}
+        <a href="#" class="btn btn-primary btn-sm">
+          <i class="bi bi-download me-1"></i>Скачать
+          <span class="ms-1 opacity-75" style="font-size:10px;">v{{ doc.latest_version().version_number }}</span>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Meta row -->
+    <hr class="section-divider my-3">
+    <div class="d-flex flex-wrap gap-4" style="font-size:13px;color:#6b7280;">
+      <div><i class="bi bi-building me-1"></i>
+        <strong style="color:#374151;">Разработчик:</strong> {{ doc.author.organization }}
+      </div>
+      <div><i class="bi bi-person me-1"></i>
+        <strong style="color:#374151;">Ответственный:</strong> {{ doc.author.full_name }}
+      </div>
+      <div><i class="bi bi-calendar3 me-1"></i>
+        <strong style="color:#374151;">Создан:</strong> {{ doc.created_at.strftime('%d.%m.%Y') }}
+      </div>
+      {% if doc.discussion_deadline %}
+      <div>
+        <i class="bi bi-hourglass-split me-1"></i>
+        <strong style="color:#374151;">Срок обсуждения:</strong>
+        <span>{{ doc.discussion_deadline.strftime('%d.%m.%Y') }}</span>
+      </div>
+      {% endif %}
+      <div><i class="bi bi-chat-square me-1"></i>
+        <strong style="color:#374151;">Замечаний:</strong>
+        {{ doc.comments_count() }}
+        {% if doc.new_comments_count() > 0 %}
+        <span class="badge bg-danger ms-1">{{ doc.new_comments_count() }} новых</span>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main content: timeline + comments + add comment -->
+<div class="row g-4">
+
+  <!-- LEFT: comments -->
+  <div class="col-xl-8">
+
+    <!-- Add comment form (for experts and all authenticated users) -->
+    {% if doc.status in ('discussion', 'review') or user.role == 'admin' %}
+    <div class="card mb-4">
+      <div class="card-header">
+        <i class="bi bi-plus-circle text-primary me-2"></i>
+        {% if user.role == 'expert' %}Оставить замечание / предложение
+        {% else %}Добавить комментарий{% endif %}
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('documents.add_comment', doc_id=doc.id) }}">
+          <div class="row g-3 mb-3">
+            <div class="col-sm-6">
+              <label class="form-label">Тип</label>
+              <select name="comment_type" class="form-select">
+                <option value="remark">Замечание</option>
+                <option value="proposal">Предложение</option>
+                <option value="question">Вопрос</option>
+              </select>
+            </div>
+            <div class="col-sm-6">
+              <label class="form-label">Раздел / пункт документа</label>
+              <input type="text" name="section" class="form-control"
+                     placeholder="напр. п. 3.2, Раздел 5…">
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Текст замечания <span class="text-danger">*</span></label>
+            <textarea name="text" class="form-control" rows="4"
+                      placeholder="Опишите замечание, предложение или вопрос…" required></textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-send me-1"></i>Отправить
+            </button>
+            <span class="text-muted align-self-center" style="font-size:12px;">
+              Будет зафиксировано с вашим именем и датой
+            </span>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Comments list -->
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span>
+          <i class="bi bi-chat-square-text text-primary me-2"></i>
+          Замечания и предложения
+          <span class="badge bg-secondary ms-1">{{ doc.comments_count() }}</span>
+        </span>
+        {% if doc.new_comments_count() > 0 %}
+        <span class="badge bg-danger">{{ doc.new_comments_count() }} новых</span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if doc.comments %}
+          {% set avatar_colors = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b2'] %}
+          {% for c in doc.comments %}
+          {% set ti = c.type_info() %}
+          {% set si_c = c.status_info() %}
+          <div class="comment-card">
+            <div class="comment-header">
+              <div class="comment-avatar"
+                   style="background:{{ avatar_colors[loop.index0 % avatar_colors|length] }}">
+                {{ c.author.get_initials() }}
+              </div>
+              <div>
+                <div class="comment-author">{{ c.author.full_name }}</div>
+                <div class="comment-org">{{ c.author.organization }}</div>
+              </div>
+              <span class="badge bg-{{ ti[1] }}">{{ ti[0] }}</span>
+              <span class="badge bg-{{ si_c[1] }}">{{ si_c[0] }}</span>
+              {% if c.section %}
+              <span class="comment-section">{{ c.section }}</span>
+              {% endif %}
+              <span class="text-muted ms-auto" style="font-size:11.5px;">
+                {{ c.created_at.strftime('%d.%m.%Y %H:%M') }}
+              </span>
+            </div>
+            <div class="comment-text type-{{ c.comment_type }}">{{ c.text }}</div>
+
+            <!-- Status controls for org/admin -->
+            {% if user.role in ('admin', 'org') %}
+            <div class="mt-2 d-flex gap-2 align-items-center">
+              <span class="text-muted" style="font-size:11.5px;">Изменить статус:</span>
+              <form method="POST"
+                    action="{{ url_for('documents.update_comment_status', doc_id=doc.id, comment_id=c.id) }}"
+                    class="d-inline">
+                <input type="hidden" name="status" value="reviewed">
+                <button class="btn btn-xs btn-outline-warning" type="submit"
+                        style="font-size:11px;padding:2px 8px;">Рассмотрено</button>
+              </form>
+              <form method="POST"
+                    action="{{ url_for('documents.update_comment_status', doc_id=doc.id, comment_id=c.id) }}"
+                    class="d-inline">
+                <input type="hidden" name="status" value="accepted">
+                <button class="btn btn-xs btn-outline-success" type="submit"
+                        style="font-size:11px;padding:2px 8px;">Принять</button>
+              </form>
+              <form method="POST"
+                    action="{{ url_for('documents.update_comment_status', doc_id=doc.id, comment_id=c.id) }}"
+                    class="d-inline">
+                <input type="hidden" name="status" value="rejected">
+                <button class="btn btn-xs btn-outline-danger" type="submit"
+                        style="font-size:11px;padding:2px 8px;">Отклонить</button>
+              </form>
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-chat-square" style="font-size:36px;opacity:.25;"></i>
+          <p class="mt-2 mb-0" style="font-size:13.5px;">Замечаний пока нет.</p>
+          {% if doc.status == 'discussion' %}
+          <p class="mt-1" style="font-size:12.5px;">Будьте первым — оставьте замечание или предложение выше.</p>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT: timeline + versions -->
+  <div class="col-xl-4">
+
+    <!-- Timeline -->
+    <div class="card mb-4">
+      <div class="card-header">
+        <i class="bi bi-diagram-3 text-primary me-2"></i>Этапы документа
+      </div>
+      <div class="card-body py-3">
+        <ul class="timeline">
+          {% for stage in doc.stages %}
+          <li class="timeline-item">
+            <div class="timeline-icon {{ stage.status }}">
+              {% if stage.status == 'completed' %}
+              <i class="bi bi-check-lg"></i>
+              {% elif stage.status == 'active' %}
+              <i class="bi bi-play-fill"></i>
+              {% else %}
+              <i class="bi bi-circle"></i>
+              {% endif %}
+            </div>
+            <div class="timeline-body">
+              <div class="timeline-title">
+                {{ stage.name }}
+                {% if stage.status == 'active' %}
+                <span class="badge bg-primary ms-1" style="font-size:9px;">СЕЙЧАС</span>
+                {% endif %}
+              </div>
+              {% if stage.date %}
+              <div class="timeline-date">
+                <i class="bi bi-calendar3 me-1"></i>{{ stage.date.strftime('%d.%m.%Y') }}
+              </div>
+              {% endif %}
+              <div class="timeline-desc">{{ stage.description }}</div>
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+
+    <!-- Versions -->
+    {% if doc.versions %}
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-archive text-primary me-2"></i>Версии документа
+      </div>
+      <div class="card-body p-0">
+        {% for v in doc.versions %}
+        <div class="d-flex align-items-center gap-3 px-4 py-3
+                    {% if not loop.last %}border-bottom{% endif %}">
+          <div style="width:36px;height:36px;background:#eff6ff;border-radius:9px;
+                      display:flex;align-items:center;justify-content:center;
+                      font-size:12px;font-weight:700;color:#2563eb;flex-shrink:0;">
+            v{{ v.version_number }}
+          </div>
+          <div class="flex-grow-1 min-w-0">
+            <div class="fw-semibold text-truncate" style="font-size:12.5px;">{{ v.file_name }}</div>
+            <div class="text-muted" style="font-size:11.5px;">
+              {{ v.uploaded_at.strftime('%d.%m.%Y') }}
+              {% if v.file_size %} · {{ (v.file_size / 1024 / 1024) | round(1) }} МБ{% endif %}
+            </div>
+            {% if v.note %}
+            <div class="text-muted mt-1" style="font-size:11px;font-style:italic;">{{ v.note }}</div>
+            {% endif %}
+          </div>
+          <a href="#" class="btn btn-sm btn-outline-secondary" title="Скачать">
+            <i class="bi bi-download"></i>
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

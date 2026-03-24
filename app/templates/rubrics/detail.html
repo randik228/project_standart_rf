@@ -1,0 +1,117 @@
+{% extends 'base.html' %}
+{% block title %}{{ rubric.name }} — Стандарт РФ{% endblock %}
+{% block page_title %}Рубрика: {{ rubric.code }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb" style="font-size:13px;">
+    <li class="breadcrumb-item"><a href="{{ url_for('rubrics.index') }}">Рубрикатор</a></li>
+    <li class="breadcrumb-item active">{{ rubric.name }}</li>
+  </ol>
+</nav>
+
+<!-- Header -->
+<div class="card mb-4">
+  <div class="card-body p-4">
+    <div class="d-flex align-items-start gap-4">
+      <div style="width:56px;height:56px;background:#eff6ff;border-radius:14px;
+                  display:flex;align-items:center;justify-content:center;
+                  font-size:15px;font-weight:800;color:#2563eb;flex-shrink:0;">
+        {{ rubric.code }}
+      </div>
+      <div>
+        <h2 style="font-size:20px;font-weight:700;margin-bottom:6px;">{{ rubric.name }}</h2>
+        {% if rubric.description %}
+        <p class="text-muted mb-0" style="font-size:13.5px;line-height:1.6;">{{ rubric.description }}</p>
+        {% endif %}
+        <div class="d-flex gap-3 mt-3" style="font-size:13px;color:#6b7280;">
+          <span><i class="bi bi-file-earmark-text me-1"></i>{{ rubric.document_count() }} документов</span>
+          <span><i class="bi bi-people me-1"></i>{{ rubric.expert_count() }} экспертов</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Documents -->
+  <div class="col-xl-8">
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-file-earmark-text text-primary me-2"></i>Документы рубрики
+      </div>
+      <div class="card-body p-0">
+        {% if docs %}
+          {% for doc in docs %}
+          {% set si = doc.status_info() %}
+          <a href="{{ url_for('documents.detail', doc_id=doc.id) }}"
+             class="d-flex align-items-start gap-3 px-4 py-3 border-bottom
+                    text-decoration-none text-dark list-group-item-action">
+            <div class="mt-1 flex-shrink-0">
+              <span class="badge bg-{{ si[1] }}">{{ si[0] }}</span>
+            </div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="fw-semibold text-truncate" style="font-size:13.5px;">{{ doc.title }}</div>
+              <div class="text-muted mt-1" style="font-size:12px;">
+                {{ doc.number or '—' }}
+                {% if doc.discussion_deadline %}
+                · до {{ doc.discussion_deadline.strftime('%d.%m.%Y') }}
+                {% endif %}
+              </div>
+            </div>
+            <div class="text-muted flex-shrink-0" style="font-size:12px;">
+              <i class="bi bi-chat me-1"></i>{{ doc.comments_count() }}
+            </div>
+          </a>
+          {% endfor %}
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-file-earmark" style="font-size:36px;opacity:.25;"></i>
+          <p class="mt-2 mb-0">Документов в этой рубрике пока нет</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Experts -->
+  <div class="col-xl-4">
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-people text-primary me-2"></i>Эксперты рубрики
+      </div>
+      <div class="card-body p-0">
+        {% if experts %}
+          {% for expert in experts %}
+          <div class="d-flex align-items-center gap-3 px-4 py-3
+                      {% if not loop.last %}border-bottom{% endif %}">
+            <div class="user-avatar" style="width:38px;height:38px;font-size:12px;
+                 background:#059669;flex-shrink:0;">
+              {{ expert.get_initials() }}
+            </div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="fw-semibold text-truncate" style="font-size:13px;">
+                {{ expert.full_name }}
+              </div>
+              <div class="text-muted text-truncate" style="font-size:11.5px;">
+                {{ expert.organization }}
+              </div>
+              <div class="text-muted" style="font-size:11px;">{{ expert.position }}</div>
+            </div>
+            <a href="{{ url_for('messages.compose', to=expert.id) }}"
+               class="btn btn-sm btn-outline-secondary flex-shrink-0" title="Написать сообщение">
+              <i class="bi bi-envelope"></i>
+            </a>
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="text-center py-4 text-muted" style="font-size:13px;">
+          <i class="bi bi-person-x" style="font-size:28px;opacity:.3;display:block;margin-bottom:8px;"></i>
+          Эксперты не назначены
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

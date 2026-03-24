@@ -1,0 +1,57 @@
+{% extends 'base.html' %}
+{% block title %}Новое сообщение — Стандарт РФ{% endblock %}
+{% block page_title %}Новое сообщение{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb" style="font-size:13px;">
+    <li class="breadcrumb-item"><a href="{{ url_for('messages.index') }}">Сообщения</a></li>
+    <li class="breadcrumb-item active">Новое сообщение</li>
+  </ol>
+</nav>
+
+<div class="row justify-content-center">
+  <div class="col-xl-8">
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-pencil-square text-primary me-2"></i>Compose
+      </div>
+      <div class="card-body p-4">
+        <form method="POST" action="{{ url_for('messages.compose') }}">
+          <div class="mb-3">
+            <label class="form-label">Получатель <span class="text-danger">*</span></label>
+            <select name="receiver_id" class="form-select" required>
+              <option value="">— Выберите получателя —</option>
+              {% set role_labels = {'admin':'Администратор','org':'Организация','expert':'Эксперт'} %}
+              {% for u in users %}
+              <option value="{{ u.id }}"
+                {% if prefill_to == u.id|string %}selected{% endif %}>
+                {{ u.full_name }} ({{ role_labels.get(u.role, u.role) }} · {{ u.organization }})
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Тема</label>
+            <input type="text" name="subject" class="form-control"
+                   placeholder="Тема сообщения…">
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Текст сообщения <span class="text-danger">*</span></label>
+            <textarea name="text" class="form-control" rows="7"
+                      placeholder="Введите текст сообщения…" required></textarea>
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-send me-1"></i>Отправить
+            </button>
+            <a href="{{ url_for('messages.index') }}" class="btn btn-outline-secondary">
+              Отмена
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

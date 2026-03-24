@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% block title %}Уведомления — Стандарт РФ{% endblock %}
+{% block page_title %}Уведомления{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1>Уведомления</h1>
+    <p>Системные оповещения и события по документам</p>
+  </div>
+  {% set unread = notifications | selectattr('is_read', 'false') | list %}
+  {% if unread %}
+  <form method="POST" action="{{ url_for('notifications.mark_all_read') }}">
+    <button type="submit" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-check2-all me-1"></i>Отметить все прочитанными
+    </button>
+  </form>
+  {% endif %}
+</div>
+
+{% set icon_map = {'info':'info-circle','warning':'exclamation-triangle','success':'check-circle','danger':'exclamation-circle'} %}
+
+{% if notifications %}
+  {% set unread_list = notifications | selectattr('is_read', 'false') | list %}
+  {% set read_list   = notifications | selectattr('is_read', 'true')  | list %}
+
+  {% if unread_list %}
+  <div class="mb-2" style="font-size:12px;font-weight:600;text-transform:uppercase;
+                            letter-spacing:.06em;color:#6b7280;">
+    Непрочитанные · {{ unread_list | length }}
+  </div>
+  {% for n in unread_list %}
+  <div class="card mb-2 border-{{ n.notification_type }}"
+       style="border-left:4px solid !important;">
+    <div class="card-body py-3 px-4 d-flex align-items-start gap-3">
+      <div style="width:36px;height:36px;border-radius:50%;flex-shrink:0;
+                  display:flex;align-items:center;justify-content:center;font-size:16px;"
+           class="bg-{{ n.notification_type }} bg-opacity-10 text-{{ n.notification_type }}">
+        <i class="bi bi-{{ icon_map.get(n.notification_type, 'info-circle') }}"></i>
+      </div>
+      <div class="flex-grow-1">
+        <div class="fw-semibold mb-1" style="font-size:14px;">{{ n.title }}</div>
+        {% if n.text %}
+        <div class="text-muted" style="font-size:13px;">{{ n.text }}</div>
+        {% endif %}
+        <div class="text-muted mt-1" style="font-size:12px;">
+          <i class="bi bi-clock me-1"></i>{{ n.created_at.strftime('%d.%m.%Y %H:%M') }}
+        </div>
+      </div>
+      <div class="d-flex gap-2 flex-shrink-0">
+        {% if n.link %}
+        <a href="{{ n.link }}" class="btn btn-sm btn-outline-primary">Открыть</a>
+        {% endif %}
+        <form method="POST" action="{{ url_for('notifications.mark_read', notif_id=n.id) }}">
+          <button type="submit" class="btn btn-sm btn-outline-secondary" title="Отметить прочитанным">
+            <i class="bi bi-check-lg"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {% if read_list %}
+  {% if unread_list %}<hr class="section-divider">{% endif %}
+  <div class="mb-2" style="font-size:12px;font-weight:600;text-transform:uppercase;
+                            letter-spacing:.06em;color:#9ca3af;">
+    Прочитанные · {{ read_list | length }}
+  </div>
+  {% for n in read_list %}
+  <div class="card mb-2" style="opacity:.65;">
+    <div class="card-body py-3 px-4 d-flex align-items-start gap-3">
+      <div style="width:36px;height:36px;border-radius:50%;flex-shrink:0;
+                  display:flex;align-items:center;justify-content:center;font-size:16px;
+                  background:#f3f4f6;color:#9ca3af;">
+        <i class="bi bi-{{ icon_map.get(n.notification_type, 'info-circle') }}"></i>
+      </div>
+      <div class="flex-grow-1">
+        <div class="fw-semibold mb-1" style="font-size:14px;">{{ n.title }}</div>
+        {% if n.text %}
+        <div class="text-muted" style="font-size:13px;">{{ n.text }}</div>
+        {% endif %}
+        <div class="text-muted mt-1" style="font-size:12px;">
+          <i class="bi bi-clock me-1"></i>{{ n.created_at.strftime('%d.%m.%Y %H:%M') }}
+        </div>
+      </div>
+      {% if n.link %}
+      <a href="{{ n.link }}" class="btn btn-sm btn-outline-secondary flex-shrink-0">Открыть</a>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+{% else %}
+<div class="card">
+  <div class="card-body text-center py-5 text-muted">
+    <i class="bi bi-bell-slash" style="font-size:40px;opacity:.25;"></i>
+    <p class="mt-3 mb-0">Уведомлений нет</p>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
