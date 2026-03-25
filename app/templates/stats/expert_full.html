@@ -1,0 +1,343 @@
+{% extends 'base.html' %}
+{% block title %}Моя статистика — Стандарт РФ{% endblock %}
+{% block page_title %}Моя статистика{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1>Моя статистика</h1>
+    <p>Личный анализ активности и качества работы · только для вас</p>
+  </div>
+  <a href="{{ url_for('main.dashboard') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Дашборд
+  </a>
+</div>
+
+{# ── Блок 1: Основные метрики ──────────────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="bi bi-file-earmark-check"></i></div>
+      <div>
+        <div class="stat-value">{{ stats.unique_docs_count }}</div>
+        <div class="stat-label">Документов обработано</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon orange"><i class="bi bi-chat-square-text"></i></div>
+      <div>
+        <div class="stat-value">{{ stats.total_comments }}</div>
+        <div class="stat-label">Всего замечаний</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon green"><i class="bi bi-check2-circle"></i></div>
+      <div>
+        <div class="stat-value">{{ stats.quality }}%</div>
+        <div class="stat-label">Качество правок</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon purple"><i class="bi bi-speedometer2"></i></div>
+      <div>
+        <div class="stat-value">{{ stats.rating }}<span style="font-size:14px;font-weight:500;">/100</span></div>
+        <div class="stat-label">Ваш рейтинг</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+
+  {# ── Блок 2: Динамика ───────────────────────────────────────────────────── #}
+  <div class="col-xl-7">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-graph-up text-primary me-2"></i>Динамика качества по месяцам</span>
+        {% if stats.monthly_quality %}
+        <span class="badge bg-{{ stats.trend_color }}">
+          {{ stats.trend }} {{ stats.trend_label }}
+        </span>
+        {% endif %}
+      </div>
+      <div class="card-body">
+        {% if stats.monthly_labels %}
+        <div style="position:relative;height:200px;">
+          <canvas id="qualityChart"></canvas>
+        </div>
+        <div class="row g-2 mt-3 text-center">
+          <div class="col-4">
+            <div class="text-muted" style="font-size:11.5px;">Принято</div>
+            <div class="fw-bold text-success" style="font-size:18px;">{{ stats.accepted_count }}</div>
+          </div>
+          <div class="col-4">
+            <div class="text-muted" style="font-size:11.5px;">Частично</div>
+            <div class="fw-bold text-primary" style="font-size:18px;">{{ stats.partial_count }}</div>
+          </div>
+          <div class="col-4">
+            <div class="text-muted" style="font-size:11.5px;">Отклонено</div>
+            <div class="fw-bold text-danger" style="font-size:18px;">{{ stats.rejected_count }}</div>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center py-5 text-muted">
+          <i class="bi bi-graph-up fs-1 d-block mb-2 opacity-25"></i>
+          Недостаточно данных для графика
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ── Блок 3: Из чего складывается рейтинг ─────────────────────────────── #}
+  <div class="col-xl-5">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-calculator text-primary me-2"></i>Из чего складывается рейтинг
+      </div>
+      <div class="card-body">
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span style="font-size:13px;font-weight:600;">
+              <i class="bi bi-patch-check-fill text-success me-1"></i>Качество правок
+            </span>
+            <span class="badge bg-success">{{ stats.quality }}% × 0.45</span>
+          </div>
+          <div class="progress" style="height:8px;border-radius:4px;">
+            <div class="progress-bar bg-success" style="width:{{ stats.quality }}%"></div>
+          </div>
+          <div class="text-muted mt-1" style="font-size:11.5px;">
+            Принято + Частично×0.5 / Всего рассмотрено
+          </div>
+        </div>
+        <div class="mb-4">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span style="font-size:13px;font-weight:600;">
+              <i class="bi bi-journals text-primary me-1"></i>Опыт
+            </span>
+            <span class="badge bg-primary">{{ stats.experience }}% × 0.30</span>
+          </div>
+          <div class="progress" style="height:8px;border-radius:4px;">
+            <div class="progress-bar bg-primary" style="width:{{ stats.experience }}%"></div>
+          </div>
+          <div class="text-muted mt-1" style="font-size:11.5px;">
+            Сложность и разнообразие документов
+          </div>
+        </div>
+        <div class="mb-3">
+          <div class="d-flex justify-content-between align-items-center mb-1">
+            <span style="font-size:13px;font-weight:600;">
+              <i class="bi bi-lightning-charge-fill text-warning me-1"></i>Эффективность
+            </span>
+            <span class="badge bg-warning text-dark">{{ stats.efficiency }}% × 0.25</span>
+          </div>
+          <div class="progress" style="height:8px;border-radius:4px;">
+            <div class="progress-bar bg-warning" style="width:{{ stats.efficiency }}%"></div>
+          </div>
+          <div class="text-muted mt-1" style="font-size:11.5px;">
+            Соблюдение сроков подачи замечаний
+          </div>
+        </div>
+        <div class="alert alert-light border py-2 px-3 mb-0 mt-3" style="font-size:12.5px;">
+          <strong>Итого:</strong>
+          {{ stats.quality }}×0.45 + {{ stats.experience }}×0.30 + {{ stats.efficiency }}×0.25
+          = <strong class="text-primary">{{ stats.rating }} / 100</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+
+  {# ── Блок 4: Рубрики ────────────────────────────────────────────────────── #}
+  {% if stats.rubric_stats %}
+  <div class="col-xl-5">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-folder2-open text-primary me-2"></i>По рубрикам
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>Рубрика</th>
+              <th class="text-center">Докум.</th>
+              <th class="text-center">Качество</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rs in stats.rubric_stats %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ rs.rubric.code }}</div>
+                <div class="text-muted" style="font-size:11.5px;">{{ rs.rubric.name }}</div>
+              </td>
+              <td class="text-center">{{ rs.doc_count }}</td>
+              <td class="text-center">
+                {% if rs.quality >= 80 %}
+                  <span class="badge bg-success">{{ rs.quality }}%</span>
+                {% elif rs.quality >= 50 %}
+                  <span class="badge bg-primary">{{ rs.quality }}%</span>
+                {% else %}
+                  <span class="badge bg-danger">{{ rs.quality }}%</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Блок 4: Геймификация ───────────────────────────────────────────────── #}
+  <div class="col-xl-7">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-trophy text-warning me-1"></i>Ваш прогресс
+      </div>
+      <div class="card-body">
+
+        {# Текущий уровень #}
+        <div class="d-flex align-items-center gap-3 mb-3 p-3 rounded"
+             style="background:#f8f9fa;border:1px solid #e9ecef;">
+          <div style="width:52px;height:52px;border-radius:14px;flex-shrink:0;
+                      display:flex;align-items:center;justify-content:center;
+                      background:var(--bs-{{ stats.level.color }}-subtle, #e9ecef);">
+            <i class="bi bi-{{ stats.level.icon }} text-{{ stats.level.color }}" style="font-size:24px;"></i>
+          </div>
+          <div class="flex-grow-1">
+            <div class="fw-bold" style="font-size:16px;">{{ stats.level.name }}</div>
+            {% if stats.level.next_name %}
+            <div class="text-muted" style="font-size:12px;">
+              До уровня «{{ stats.level.next_name }}»: {{ stats.level.next_threshold }} баллов
+            </div>
+            <div class="progress mt-1" style="height:6px;border-radius:3px;">
+              <div class="progress-bar bg-{{ stats.level.color }}"
+                   style="width:{{ stats.level.progress }}%"></div>
+            </div>
+            {% else %}
+            <div class="text-muted" style="font-size:12px;">Максимальный уровень достигнут!</div>
+            <div class="progress mt-1" style="height:6px;border-radius:3px;">
+              <div class="progress-bar bg-warning" style="width:100%"></div>
+            </div>
+            {% endif %}
+          </div>
+          <div class="text-end flex-shrink-0">
+            <div class="fw-bold text-primary" style="font-size:22px;">{{ stats.rating }}</div>
+            <div class="text-muted" style="font-size:11px;">баллов</div>
+          </div>
+        </div>
+
+        {# Бейджи #}
+        <div style="font-size:13px;font-weight:600;margin-bottom:10px;">
+          <i class="bi bi-patch-check me-1 text-primary"></i>Достижения
+        </div>
+        <div class="row g-2">
+          {% for b in stats.badges %}
+          <div class="col-6">
+            <div class="d-flex align-items-center gap-2 p-2 rounded"
+                 style="background:{% if b.earned %}#f0fdf4{% else %}#f8f9fa{% endif %};
+                        border:1px solid {% if b.earned %}#bbf7d0{% else %}#e9ecef{% endif %};
+                        opacity:{% if b.earned %}1{% else %}0.5{% endif %};">
+              <i class="bi bi-{{ b.icon }} text-{{ b.color if b.earned else 'secondary' }}"
+                 style="font-size:20px;flex-shrink:0;"></i>
+              <div class="min-w-0">
+                <div class="fw-semibold" style="font-size:12px;line-height:1.2;">{{ b.name }}</div>
+                <div class="text-muted" style="font-size:11px;line-height:1.2;">{{ b.desc }}</div>
+              </div>
+              {% if b.earned %}
+              <i class="bi bi-check-circle-fill text-success ms-auto flex-shrink-0" style="font-size:14px;"></i>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if not stats.total_comments %}
+<div class="card">
+  <div class="card-body text-center py-5 text-muted">
+    <i class="bi bi-bar-chart fs-1 d-block mb-2 opacity-25"></i>
+    Статистика появится после того, как вы оставите первые замечания по документам.
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if stats.monthly_labels %}
+const qCtx = document.getElementById('qualityChart');
+if (qCtx) {
+  new Chart(qCtx, {
+    type: 'line',
+    data: {
+      labels: {{ stats.monthly_labels | tojson }},
+      datasets: [
+        {
+          label: 'Качество, %',
+          data: {{ stats.monthly_quality | tojson }},
+          borderColor: '#198754',
+          backgroundColor: 'rgba(25,135,84,0.08)',
+          borderWidth: 2.5,
+          pointRadius: 4,
+          pointBackgroundColor: '#198754',
+          tension: 0.35,
+          fill: true,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Замечаний',
+          data: {{ stats.monthly_counts | tojson }},
+          borderColor: '#0d6efd',
+          backgroundColor: 'transparent',
+          borderWidth: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#0d6efd',
+          borderDash: [4, 3],
+          tension: 0.35,
+          yAxisID: 'y1',
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 12 } } }
+      },
+      scales: {
+        y: {
+          type: 'linear', position: 'left',
+          min: 0, max: 100,
+          ticks: { callback: v => v + '%', font: { size: 11 } },
+          grid: { color: 'rgba(0,0,0,0.05)' }
+        },
+        y1: {
+          type: 'linear', position: 'right',
+          min: 0,
+          ticks: { font: { size: 11 } },
+          grid: { drawOnChartArea: false }
+        },
+        x: { ticks: { font: { size: 11 } }, grid: { display: false } }
+      }
+    }
+  });
+}
+{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+{% block title %}Статистика эксперта — Стандарт РФ{% endblock %}
+{% block page_title %}Статистика сотрудника{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1>{{ expert.full_name }}</h1>
+    <p>{{ expert.position or 'Эксперт' }} · {{ expert.organization or user.organization }}</p>
+  </div>
+  <a href="{{ url_for('org.experts') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-arrow-left me-1"></i>Мои эксперты
+  </a>
+</div>
+
+{# ── Основные метрики ─────────────────────────────────────────────────────── #}
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="bi bi-file-earmark-check"></i></div>
+      <div>
+        <div class="stat-value">{{ stats.unique_docs_count }}</div>
+        <div class="stat-label">Документов обработано</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon orange"><i class="bi bi-chat-square-text"></i></div>
+      <div>
+        <div class="stat-value">{{ stats.total_comments }}</div>
+        <div class="stat-label">Всего замечаний</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon green"><i class="bi bi-check2-circle"></i></div>
+      <div>
+        <div class="stat-value">{{ stats.quality }}%</div>
+        <div class="stat-label">Среднее качество правок</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon {{ 'green' if expert.is_active else 'red' }}">
+        <i class="bi bi-circle-fill"></i>
+      </div>
+      <div>
+        <div class="stat-value" style="font-size:18px;">
+          {{ 'Активен' if expert.is_active else 'Неактивен' }}
+        </div>
+        <div class="stat-label">Статус сотрудника</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  {# ── Детализация правок ──────────────────────────────────────────────────── #}
+  <div class="col-xl-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-pie-chart text-primary me-2"></i>Статусы замечаний
+      </div>
+      <div class="card-body d-flex flex-column align-items-center justify-content-center py-4">
+        {% if stats.reviewed_count %}
+        <div style="max-width:200px;width:100%;position:relative;">
+          <canvas id="statusPieChart"></canvas>
+        </div>
+        <div class="mt-3 w-100">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="d-flex align-items-center gap-2">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#198754;"></span>
+              <span style="font-size:13px;">Принято</span>
+            </div>
+            <strong>{{ stats.accepted_count }}</strong>
+          </div>
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="d-flex align-items-center gap-2">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#0d6efd;"></span>
+              <span style="font-size:13px;">Принято частично</span>
+            </div>
+            <strong>{{ stats.partial_count }}</strong>
+          </div>
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div class="d-flex align-items-center gap-2">
+              <span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#dc3545;"></span>
+              <span style="font-size:13px;">Отклонено</span>
+            </div>
+            <strong>{{ stats.rejected_count }}</strong>
+          </div>
+          <div class="d-flex align-items-center justify-content-between text-muted" style="font-size:12px;">
+            <span>Ещё на рассмотрении</span>
+            <span>{{ stats.total_comments - stats.reviewed_count }}</span>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-center py-4 text-muted">
+          <i class="bi bi-pie-chart fs-1 d-block mb-2 opacity-25"></i>
+          Замечания пока не рассмотрены
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {# ── По рубрикам + качество ──────────────────────────────────────────────── #}
+  <div class="col-xl-6">
+    <div class="card h-100">
+      <div class="card-header">
+        <i class="bi bi-folder2-open text-primary me-2"></i>Активность по рубрикам
+      </div>
+      {% if stats.rubric_stats %}
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>Рубрика</th>
+              <th class="text-center">Докум.</th>
+              <th class="text-center">Качество</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for rs in stats.rubric_stats %}
+            <tr>
+              <td>
+                <div class="fw-semibold">{{ rs.rubric.code }}</div>
+                <div class="text-muted" style="font-size:11.5px;">{{ rs.rubric.name }}</div>
+              </td>
+              <td class="text-center">{{ rs.doc_count }}</td>
+              <td class="text-center">
+                {% if rs.quality >= 80 %}
+                  <span class="badge bg-success">{{ rs.quality }}%</span>
+                {% elif rs.quality >= 50 %}
+                  <span class="badge bg-primary">{{ rs.quality }}%</span>
+                {% else %}
+                  <span class="badge bg-danger">{{ rs.quality }}%</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="card-body text-center py-4 text-muted" style="font-size:13px;">
+        Нет данных по рубрикам
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{% if not stats.total_comments %}
+<div class="card mt-4">
+  <div class="card-body text-center py-5 text-muted">
+    <i class="bi bi-bar-chart fs-1 d-block mb-2 opacity-25"></i>
+    Сотрудник ещё не оставлял замечаний по документам.
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+{% if stats.reviewed_count %}
+const pieCtx = document.getElementById('statusPieChart');
+if (pieCtx) {
+  new Chart(pieCtx, {
+    type: 'doughnut',
+    data: {
+      labels: ['Принято', 'Принято частично', 'Отклонено'],
+      datasets: [{
+        data: [{{ stats.accepted_count }}, {{ stats.partial_count }}, {{ stats.rejected_count }}],
+        backgroundColor: ['#198754', '#0d6efd', '#dc3545'],
+        borderWidth: 3,
+        borderColor: '#fff',
+        hoverOffset: 5,
+      }]
+    },
+    options: {
+      cutout: '65%',
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+{% endif %}
+</script>
+{% endblock %}

@@ -3,9 +3,14 @@
 {% block page_title %}Кабинет эксперта{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Кабинет эксперта</h1>
-  <p>{{ user.organization }} · {{ user.position }}</p>
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1>Кабинет эксперта</h1>
+    <p>{{ user.organization }} · {{ user.position }}</p>
+  </div>
+  <a href="{{ url_for('main.expert_stats') }}" class="btn btn-outline-primary btn-sm">
+    <i class="bi bi-bar-chart-line me-1"></i>Моя статистика
+  </a>
 </div>
 
 <!-- Stats -->
@@ -32,8 +37,8 @@
     <div class="stat-card">
       <div class="stat-icon blue"><i class="bi bi-chat-square-text"></i></div>
       <div>
-        <div class="stat-value">{{ my_comments | length }}</div>
-        <div class="stat-label">Моих замечаний</div>
+        <div class="stat-value">{{ stats.total_comments }}</div>
+        <div class="stat-label">Всего замечаний</div>
       </div>
     </div>
   </div>
@@ -41,8 +46,56 @@
     <div class="stat-card">
       <div class="stat-icon green"><i class="bi bi-check2-circle"></i></div>
       <div>
-        <div class="stat-value">{{ my_comments | selectattr('status', 'eq', 'accepted') | list | length }}</div>
-        <div class="stat-label">Принято замечаний</div>
+        <div class="stat-value">{{ stats.quality }}%</div>
+        <div class="stat-label">Качество правок</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Mini stats strip: level + rating -->
+<div class="card mb-4" style="background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);border:none;">
+  <div class="card-body py-3 px-4">
+    <div class="row align-items-center g-3">
+      <div class="col-auto">
+        <div style="width:44px;height:44px;border-radius:12px;background:rgba(255,255,255,0.15);
+                    display:flex;align-items:center;justify-content:center;">
+          <i class="bi bi-{{ stats.level.icon }} text-warning" style="font-size:22px;"></i>
+        </div>
+      </div>
+      <div class="col">
+        <div class="text-white fw-bold" style="font-size:15px;">{{ stats.level.name }}</div>
+        {% if stats.level.next_name %}
+        <div class="text-white-50" style="font-size:12px;">
+          До «{{ stats.level.next_name }}» — {{ stats.level.next_threshold }} баллов
+        </div>
+        <div class="progress mt-1" style="height:4px;border-radius:2px;background:rgba(255,255,255,0.2);">
+          <div class="progress-bar bg-warning" style="width:{{ stats.level.progress }}%"></div>
+        </div>
+        {% else %}
+        <div class="text-white-50" style="font-size:12px;">Максимальный уровень</div>
+        {% endif %}
+      </div>
+      <div class="col-auto d-flex gap-4">
+        <div class="text-center">
+          <div class="text-white fw-bold" style="font-size:22px;">{{ stats.rating }}</div>
+          <div class="text-white-50" style="font-size:11px;">рейтинг</div>
+        </div>
+        <div class="text-center">
+          <div class="text-white fw-bold" style="font-size:22px;">{{ stats.badges | selectattr('earned') | list | length }}/{{ stats.badges | length }}</div>
+          <div class="text-white-50" style="font-size:11px;">бейджей</div>
+        </div>
+        <div class="text-center">
+          <div class="text-white fw-bold" style="font-size:22px;">
+            {{ stats.trend }}
+          </div>
+          <div class="text-white-50" style="font-size:11px;">{{ stats.trend_label }}</div>
+        </div>
+      </div>
+      <div class="col-auto">
+        <a href="{{ url_for('main.expert_stats') }}" class="btn btn-light btn-sm">
+          <i class="bi bi-bar-chart-line me-1"></i>Подробнее
+        </a>
       </div>
     </div>
   </div>

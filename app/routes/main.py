@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, redirect, url_for
+from flask import Blueprint, render_template, redirect, url_for, abort
 from app.models import User, Document, Comment, Notification, RubricExpert, DOCUMENT_STATUSES, RubricProposal
 from app.utils import login_required, get_current_user
 
@@ -97,6 +97,8 @@ def dashboard():
         my_comments = Comment.query.filter_by(user_id=user.id)\
                                    .order_by(Comment.created_at.desc()).limit(5).all()
         my_rubrics  = RubricExpert.query.filter_by(user_id=user.id).all()
+        from app.utils_stats import compute_expert_stats
+        stats = compute_expert_stats(user)
         return render_template('dashboard/expert.html',
                                user=user, my_docs=my_docs, fav_doc_ids=fav_doc_ids,
                                my_comments=my_comments, my_rubrics=my_rubrics,
@@ -106,4 +108,17 @@ def dashboard():
                                total_experts=0,
                                recent_docs=my_docs[:6], recent_comments=[],
                                status_counts={k: 0 for k in DOCUMENT_STATUSES},
-                               DOCUMENT_STATUSES=DOCUMENT_STATUSES)
+                               DOCUMENT_STATUSES=DOCUMENT_STATUSES,
+                               stats=stats)
+
+
+@main_bp.route('/stats')
+@login_required
+def expert_stats():
+    """Full statistics page — accessible only by the expert themselves."""
+    user = get_current_user()
+    if user.role != 'expert':
+        abort(403)
+    from app.utils_stats import compute_expert_stats
+    stats = compute_expert_stats(user)
+    return render_template('stats/expert_full.html', user=user, stats=stats)

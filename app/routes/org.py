@@ -152,3 +152,17 @@ def mark_proposal_reviewed(proposal_id):
     db.session.commit()
     flash('Предложение отмечено как рассмотренное.', 'success')
     return redirect(url_for('org.proposals'))
+
+
+@org_bp.route('/expert-stats/<int:expert_id>')
+@role_required('organization')
+def expert_stats(expert_id):
+    """Simplified expert stats — visible to the expert's own organisation."""
+    org    = get_current_user()
+    expert = User.query.get_or_404(expert_id)
+    if expert.org_id != org.id:
+        flash('Нет доступа.', 'danger')
+        return redirect(url_for('org.experts'))
+    from app.utils_stats import compute_expert_stats
+    stats = compute_expert_stats(expert)
+    return render_template('stats/expert_org.html', user=org, expert=expert, stats=stats)
