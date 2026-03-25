@@ -4,15 +4,17 @@ const sidebar       = document.getElementById('sidebar');
 if (sidebarToggle && sidebar) {
   const isMobile = () => window.innerWidth <= 768;
 
-  // Restore desktop collapsed state
+  // Restore desktop icon-only collapsed state
   if (!isMobile() && localStorage.getItem('sidebarCollapsed') === 'true') {
     sidebar.classList.add('collapsed');
   }
 
   sidebarToggle.addEventListener('click', () => {
     if (isMobile()) {
+      // Mobile: slide in / out
       sidebar.classList.toggle('open');
     } else {
+      // Desktop: shrink to icons / expand
       sidebar.classList.toggle('collapsed');
       localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
     }

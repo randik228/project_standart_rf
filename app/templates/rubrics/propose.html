@@ -1,0 +1,127 @@
+{% extends 'base.html' %}
+{% block title %}Запрос рубрики — Стандарт РФ{% endblock %}
+{% block page_title %}Запрос на создание рубрики{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+  <ol class="breadcrumb" style="font-size:13px;">
+    <li class="breadcrumb-item"><a href="{{ url_for('rubrics.index') }}">Рубрикатор</a></li>
+    {% if next_url %}
+    <li class="breadcrumb-item"><a href="{{ next_url }}">Назад</a></li>
+    {% endif %}
+    <li class="breadcrumb-item active">Запрос рубрики</li>
+  </ol>
+</nav>
+
+<div class="row g-4 justify-content-center">
+  <div class="col-xl-7">
+
+    <!-- Форма запроса -->
+    <div class="card mb-4">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-send text-primary"></i>
+        Новый запрос администратору
+      </div>
+      <div class="card-body p-4">
+        <div class="alert alert-info d-flex gap-2 py-2 px-3 mb-4" style="font-size:13px;">
+          <i class="bi bi-info-circle-fill flex-shrink-0 mt-1"></i>
+          <div>
+            Администратор получит уведомление и создаст рубрику в рубрикаторе.
+            После одобрения вы сможете выбрать её при добавлении документа.
+          </div>
+        </div>
+
+        <form method="POST" action="{{ url_for('rubrics.propose_rubric') }}">
+          <input type="hidden" name="next_url" value="{{ next_url }}">
+
+          <div class="row g-3 mb-3">
+            <div class="col-sm-4">
+              <label class="form-label fw-semibold">
+                Код рубрики <span class="text-danger">*</span>
+              </label>
+              <input type="text" name="code" class="form-control" required
+                     maxlength="20" placeholder="напр. ЭТС"
+                     style="text-transform:uppercase;">
+              <div class="form-text">Короткий уникальный идентификатор</div>
+            </div>
+            <div class="col-sm-8">
+              <label class="form-label fw-semibold">
+                Наименование рубрики <span class="text-danger">*</span>
+              </label>
+              <input type="text" name="name" class="form-control" required
+                     maxlength="200" placeholder="Полное название рубрики">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Описание</label>
+            <textarea name="description" class="form-control" rows="3"
+                      placeholder="Краткое описание тематики рубрики (необязательно)"></textarea>
+          </div>
+
+          <div class="mb-4">
+            <label class="form-label fw-semibold">Обоснование / примечание</label>
+            <textarea name="note" class="form-control" rows="2"
+                      placeholder="Поясните, зачем нужна эта рубрика (необязательно)"></textarea>
+          </div>
+
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="bi bi-send me-2"></i>Отправить запрос
+            </button>
+            <a href="{{ next_url or url_for('rubrics.index') }}" class="btn btn-outline-secondary">
+              Отмена
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- История своих запросов -->
+    {% if my_proposals %}
+    <div class="card">
+      <div class="card-header">
+        <i class="bi bi-clock-history text-muted me-2"></i>Мои запросы
+      </div>
+      <div class="card-body p-0">
+        <table class="table table-hover mb-0" style="font-size:13px;">
+          <thead>
+            <tr>
+              <th>Код</th>
+              <th>Наименование</th>
+              <th>Дата</th>
+              <th class="text-center">Статус</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for p in my_proposals %}
+            <tr>
+              <td><span class="badge bg-secondary">{{ p.code }}</span></td>
+              <td>{{ p.name }}</td>
+              <td class="text-muted">{{ p.created_at.strftime('%d.%m.%Y') }}</td>
+              <td class="text-center">
+                {% if not p.is_reviewed %}
+                  <span class="badge bg-warning text-dark">
+                    <i class="bi bi-hourglass-split me-1"></i>На рассмотрении
+                  </span>
+                {% elif p.is_approved %}
+                  <span class="badge bg-success">
+                    <i class="bi bi-check-circle me-1"></i>Одобрено
+                  </span>
+                {% else %}
+                  <span class="badge bg-danger">
+                    <i class="bi bi-x-circle me-1"></i>Отклонено
+                  </span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

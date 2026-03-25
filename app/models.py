@@ -3,7 +3,7 @@ from app import db
 
 
 DOCUMENT_STATUSES = {
-    'draft':     ('Черновик',          'secondary', 'pencil'),
+    'draft':     ('Загружено',          'secondary', 'cloud-arrow-up'),
     'published': ('Публикация',        'primary',   'upload'),
     'review':    ('Загрузка версии',   'info',      'cloud-upload'),
     'approved':  ('Утверждён',         'success',   'check-circle-fill'),

@@ -14,29 +14,44 @@ def index():
     return render_template('rubrics/index.html', rubrics=rubrics, user=user)
 
 
-@rubrics_bp.route('/propose', methods=['POST'])
+@rubrics_bp.route('/propose', methods=['GET', 'POST'])
 @role_required('org')
 def propose_rubric():
-    org  = get_current_user()
-    code = request.form.get('code', '').strip().upper()
-    name = request.form.get('name', '').strip()
+    org = get_current_user()
+
+    if request.method == 'GET':
+        # Показываем форму; параметр next — куда вернуться после отправки
+        next_url = request.args.get('next', '')
+        my_proposals = RubricProposal.query.filter_by(org_id=org.id)\
+                                           .order_by(RubricProposal.created_at.desc()).all()
+        return render_template('rubrics/propose.html',
+                               user=org, next_url=next_url,
+                               my_proposals=my_proposals)
+
+    # POST
+    code        = request.form.get('code', '').strip().upper()
+    name        = request.form.get('name', '').strip()
     description = request.form.get('description', '').strip()
-    note = request.form.get('note', '').strip()
+    note        = request.form.get('note', '').strip()
+    next_url    = request.form.get('next_url', '')
 
     if not code or not name:
         flash('Укажите код и наименование рубрики.', 'warning')
-        return redirect(url_for('rubrics.index'))
+        return redirect(url_for('rubrics.propose_rubric', next=next_url))
     if Rubric.query.filter_by(code=code).first():
         flash(f'Рубрика с кодом «{code}» уже существует в системе.', 'warning')
-        return redirect(url_for('rubrics.index'))
+        return redirect(url_for('rubrics.propose_rubric', next=next_url))
+    if RubricProposal.query.filter_by(org_id=org.id, code=code, is_reviewed=False).first():
+        flash(f'Вы уже отправляли запрос на рубрику «{code}» — он ещё на рассмотрении.', 'warning')
+        return redirect(url_for('rubrics.propose_rubric', next=next_url))
 
     db.session.add(RubricProposal(
         org_id=org.id, code=code, name=name,
         description=description or None, note=note or None,
     ))
     db.session.commit()
-    flash(f'Предложение по добавлению рубрики «{code} — {name}» отправлено администратору.', 'success')
-    return redirect(url_for('rubrics.index'))
+    flash(f'Запрос на создание рубрики «{code} — {name}» отправлен администратору.', 'success')
+    return redirect(next_url or url_for('rubrics.index'))
 
 
 @rubrics_bp.route('/<int:rubric_id>')

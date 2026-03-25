@@ -11,7 +11,7 @@ from app.utils import login_required, role_required, get_current_user
 documents_bp = Blueprint('documents', __name__, url_prefix='/documents')
 
 STAGES_TEMPLATE = [
-    (1, 'Черновик',                  'Подготовка и оформление текста документа организацией'),
+    (1, 'Загружено',                 'Подготовка и оформление текста документа разработчиком'),
     (2, 'Публикация',                'Размещение документа на портале. Открытие доступа к комментариям от Экспертов'),
     (3, 'Загрузка итоговой версии',  'Загрузка окончательного варианта документа с учётом поступивших замечаний'),
     (4, 'Утверждение',               'Официальное утверждение и введение в действие'),
@@ -24,7 +24,11 @@ def list_documents():
     user = get_current_user()
 
     q = Document.query
-    # Сис. администратор видит все документы (без ограничений)
+    # Черновики (draft/Загружено) видит только сам автор-разработчик и администратор
+    if user.role != 'admin':
+        q = q.filter(
+            (Document.status != 'draft') | (Document.author_id == user.id)
+        )
 
     status_f = request.args.get('status', '')
     rubric_f = request.args.get('rubric', '')
@@ -95,6 +99,11 @@ def list_documents():
 def detail(doc_id):
     user = get_current_user()
     doc  = Document.query.get_or_404(doc_id)
+
+    # Черновик (Загружено) — доступен только автору и администратору
+    if doc.status == 'draft' and user.role != 'admin' and doc.author_id != user.id:
+        flash('Этот документ ещё не опубликован и недоступен для просмотра.', 'warning')
+        return redirect(url_for('documents.list_documents'))
 
     from app.models import OrgFavoriteDocument, ExpertProposal
     is_fav_doc   = False
@@ -195,7 +204,7 @@ def add():
             ))
 
         db.session.commit()
-        flash('Документ создан как черновик.', 'success')
+        flash('Документ загружен. Он виден только вам до момента публикации.', 'success')
         return redirect(url_for('documents.detail', doc_id=doc.id))
 
     return render_template('documents/add.html', rubrics=rubrics,

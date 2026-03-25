@@ -26,17 +26,20 @@
     <div class="nav-section-label">Навигация</div>
 
     <a href="{{ url_for('main.dashboard') }}"
-       class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}">
+       class="nav-link {% if request.endpoint == 'main.dashboard' %}active{% endif %}"
+       data-title="Дашборд">
       <i class="bi bi-house"></i><span>Дашборд</span>
     </a>
 
     <a href="{{ url_for('documents.list_documents') }}"
-       class="nav-link {% if request.blueprint == 'documents' and request.endpoint != 'documents.add' %}active{% endif %}">
+       class="nav-link {% if request.blueprint == 'documents' and request.endpoint != 'documents.add' %}active{% endif %}"
+       data-title="Документы">
       <i class="bi bi-file-earmark-text"></i><span>Документы</span>
     </a>
 
     <a href="{{ url_for('rubrics.index') }}"
-       class="nav-link {% if request.blueprint == 'rubrics' %}active{% endif %}">
+       class="nav-link {% if request.blueprint == 'rubrics' %}active{% endif %}"
+       data-title="Рубрикатор">
       <i class="bi bi-folder2-open"></i><span>Рубрикатор</span>
     </a>
 
@@ -45,33 +48,39 @@
 
     {% if session.role == 'org' %}
     <a href="{{ url_for('documents.add') }}"
-       class="nav-link {% if request.endpoint == 'documents.add' %}active{% endif %}">
+       class="nav-link {% if request.endpoint == 'documents.add' %}active{% endif %}"
+       data-title="Добавить документ">
       <i class="bi bi-plus-circle"></i><span>Добавить документ</span>
     </a>
     {% endif %}
 
     {% if session.role == 'admin' %}
     <a href="{{ url_for('admin.users') }}"
-       class="nav-link {% if request.endpoint in ('admin.users','admin.create_user','admin.toggle_user') %}active{% endif %}">
+       class="nav-link {% if request.endpoint in ('admin.users','admin.create_user','admin.toggle_user') %}active{% endif %}"
+       data-title="Пользователи">
       <i class="bi bi-people"></i><span>Пользователи</span>
     </a>
     <a href="{{ url_for('admin.monitoring') }}"
-       class="nav-link {% if request.endpoint == 'admin.monitoring' %}active{% endif %}">
+       class="nav-link {% if request.endpoint == 'admin.monitoring' %}active{% endif %}"
+       data-title="Мониторинг">
       <i class="bi bi-bar-chart-line"></i><span>Мониторинг</span>
     </a>
     <a href="{{ url_for('admin.rubric_proposals') }}"
-       class="nav-link {% if request.endpoint in ('admin.rubric_proposals','admin.approve_rubric_proposal','admin.reject_rubric_proposal') %}active{% endif %}">
+       class="nav-link {% if request.endpoint in ('admin.rubric_proposals','admin.approve_rubric_proposal','admin.reject_rubric_proposal') %}active{% endif %}"
+       data-title="Предложения рубрик">
       <i class="bi bi-folder-plus"></i><span>Предложения рубрик</span>
     </a>
     {% endif %}
 
     {% if session.role == 'organization' %}
     <a href="{{ url_for('org.experts') }}"
-       class="nav-link {% if request.blueprint == 'org' and 'expert' in request.endpoint %}active{% endif %}">
+       class="nav-link {% if request.blueprint == 'org' and 'expert' in request.endpoint %}active{% endif %}"
+       data-title="Мои эксперты">
       <i class="bi bi-people"></i><span>Мои эксперты</span>
     </a>
     <a href="{{ url_for('org.proposals') }}"
-       class="nav-link {% if request.endpoint == 'org.proposals' %}active{% endif %}">
+       class="nav-link {% if request.endpoint == 'org.proposals' %}active{% endif %}"
+       data-title="Предложения экспертов">
       <i class="bi bi-inbox"></i><span>Предложения экспертов</span>
     </a>
     {% endif %}
@@ -81,7 +90,8 @@
     <div class="nav-section-label mt-2">Коммуникации</div>
 
     <a href="{{ url_for('notifications.index') }}"
-       class="nav-link {% if request.blueprint == 'notifications' %}active{% endif %}">
+       class="nav-link {% if request.blueprint == 'notifications' %}active{% endif %}"
+       data-title="Уведомления">
       <i class="bi bi-bell"></i><span>Уведомления</span>
       {% set unread_n = current_user.unread_notifications() if current_user else 0 %}
       {% if unread_n > 0 %}
@@ -90,7 +100,8 @@
     </a>
 
     <a href="{{ url_for('messages.index') }}"
-       class="nav-link {% if request.blueprint == 'messages' %}active{% endif %}">
+       class="nav-link {% if request.blueprint == 'messages' %}active{% endif %}"
+       data-title="Сообщения">
       <i class="bi bi-chat-square-text"></i><span>Сообщения</span>
       {% set unread_m = current_user.unread_messages() if current_user else 0 %}
       {% if unread_m > 0 %}
