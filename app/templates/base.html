@@ -40,7 +40,7 @@
       <i class="bi bi-folder2-open"></i><span>Рубрикатор</span>
     </a>
 
-    {% if session.role in ('admin', 'org') %}
+    {% if session.role in ('admin', 'org', 'organization') %}
     <div class="nav-section-label mt-2">Управление</div>
 
     {% if session.role == 'org' %}
@@ -52,14 +52,30 @@
 
     {% if session.role == 'admin' %}
     <a href="{{ url_for('admin.users') }}"
-       class="nav-link {% if request.endpoint in ('admin.users','admin.add_to_rubric','admin.remove_from_rubric') %}active{% endif %}">
+       class="nav-link {% if request.endpoint in ('admin.users','admin.create_user','admin.toggle_user') %}active{% endif %}">
       <i class="bi bi-people"></i><span>Пользователи</span>
     </a>
     <a href="{{ url_for('admin.monitoring') }}"
        class="nav-link {% if request.endpoint == 'admin.monitoring' %}active{% endif %}">
       <i class="bi bi-bar-chart-line"></i><span>Мониторинг</span>
     </a>
+    <a href="{{ url_for('admin.rubric_proposals') }}"
+       class="nav-link {% if request.endpoint in ('admin.rubric_proposals','admin.approve_rubric_proposal','admin.reject_rubric_proposal') %}active{% endif %}">
+      <i class="bi bi-folder-plus"></i><span>Предложения рубрик</span>
+    </a>
     {% endif %}
+
+    {% if session.role == 'organization' %}
+    <a href="{{ url_for('org.experts') }}"
+       class="nav-link {% if request.blueprint == 'org' and 'expert' in request.endpoint %}active{% endif %}">
+      <i class="bi bi-people"></i><span>Мои эксперты</span>
+    </a>
+    <a href="{{ url_for('org.proposals') }}"
+       class="nav-link {% if request.endpoint == 'org.proposals' %}active{% endif %}">
+      <i class="bi bi-inbox"></i><span>Предложения экспертов</span>
+    </a>
+    {% endif %}
+
     {% endif %}
 
     <div class="nav-section-label mt-2">Коммуникации</div>

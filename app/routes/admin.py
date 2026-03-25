@@ -1,6 +1,6 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
 from app import db
-from app.models import User, Document, Comment, Rubric, RubricExpert, DOCUMENT_STATUSES
+from app.models import User, Document, Comment, Rubric, RubricExpert, DOCUMENT_STATUSES, RubricProposal
 from app.utils import role_required, get_current_user
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
@@ -10,33 +10,17 @@ admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
 @role_required('admin')
 def users():
     admin       = get_current_user()
-    my_rubric   = Rubric.query.get(admin.rubric_id) if admin.rubric_id else None
-
-    if my_rubric:
-        # Org users in this rubric
-        org_in_rubric = User.query.filter_by(rubric_id=my_rubric.id, role='org').all()
-
-        # Expert users assigned to this rubric via RubricExpert
-        re_ids       = {re.user_id for re in RubricExpert.query.filter_by(rubric_id=my_rubric.id).all()}
-        exp_in_rubric = User.query.filter(User.id.in_(re_ids), User.role == 'expert').all() if re_ids else []
-
-        rubric_users = org_in_rubric + list(exp_in_rubric)
-
-        # Platform users NOT yet in this rubric (for "add existing" section)
-        rubric_user_ids = {u.id for u in rubric_users} | {admin.id}
-        other_users = User.query.filter(
-            User.role.in_(['org', 'expert']),
-            ~User.id.in_(rubric_user_ids)
-        ).order_by(User.role, User.full_name).all()
-    else:
-        rubric_users = []
-        other_users  = User.query.filter(User.role.in_(['org', 'expert']))\
-                                 .order_by(User.role, User.full_name).all()
+    all_rubrics = Rubric.query.order_by(Rubric.code).all()
+    all_users   = User.query.filter(User.role.in_(['org', 'organization', 'expert']))\
+                            .order_by(User.role, User.full_name).all()
+    orgs        = [u for u in all_users if u.role in ('org', 'organization')]
+    experts     = [u for u in all_users if u.role == 'expert']
 
     return render_template('admin/users.html',
-                           rubric_users=rubric_users,
-                           other_users=other_users,
-                           my_rubric=my_rubric,
+                           all_users=all_users,
+                           orgs=orgs,
+                           experts=experts,
+                           all_rubrics=all_rubrics,
                            user=admin)
 
 
@@ -56,7 +40,7 @@ def create_user():
     if not all([full_name, email, username, password, role]):
         flash('Заполните все обязательные поля.', 'warning')
         return redirect(url_for('admin.users'))
-    if role not in ('org', 'expert'):
+    if role not in ('org', 'organization', 'expert', 'admin'):
         flash('Недопустимая роль.', 'warning')
         return redirect(url_for('admin.users'))
     if User.query.filter_by(username=username).first():
@@ -66,22 +50,13 @@ def create_user():
         flash(f'Email «{email}» уже используется.', 'danger')
         return redirect(url_for('admin.users'))
 
-    # For org: store rubric_id directly; for expert: create RubricExpert entry
-    new_rubric_id = admin.rubric_id if role == 'org' else None
     new_user = User(full_name=full_name, email=email, username=username,
                     password=password, role=role,
                     organization=organization or None, position=position or None,
-                    phone=phone or None,
-                    rubric_id=new_rubric_id)
+                    phone=phone or None)
     db.session.add(new_user)
-    db.session.flush()   # get new_user.id
-
-    if role == 'expert' and admin.rubric_id:
-        db.session.add(RubricExpert(rubric_id=admin.rubric_id, user_id=new_user.id))
-
     db.session.commit()
-    rubric_name = Rubric.query.get(admin.rubric_id).name if admin.rubric_id else '—'
-    flash(f'Аккаунт «{full_name}» создан и прикреплён к рубрике «{rubric_name}».', 'success')
+    flash(f'Аккаунт «{full_name}» создан.', 'success')
     return redirect(url_for('admin.users'))
 
 
@@ -200,21 +175,27 @@ def unassign_expert(re_id):
 def monitoring():
     user = get_current_user()
 
+    all_docs = Document.query.order_by(Document.updated_at.desc()).all()
+
     docs_stats = []
-    for doc in Document.query.order_by(Document.updated_at.desc()).all():
+    for doc in all_docs:
         docs_stats.append({
-            'doc':              doc,
-            'total_comments':   Comment.query.filter_by(document_id=doc.id).count(),
-            'new_comments':     Comment.query.filter_by(document_id=doc.id, status='new').count(),
+            'doc':               doc,
+            'total_comments':    Comment.query.filter_by(document_id=doc.id).count(),
+            'new_comments':      Comment.query.filter_by(document_id=doc.id, status='new').count(),
             'accepted_comments': Comment.query.filter_by(document_id=doc.id, status='accepted').count(),
         })
 
-    status_counts   = {k: Document.query.filter_by(status=k).count()
-                       for k in DOCUMENT_STATUSES}
-    recent_comments = Comment.query.order_by(Comment.created_at.desc()).limit(10).all()
-    total_users     = User.query.count()
-    total_experts   = User.query.filter_by(role='expert').count()
-    total_orgs      = User.query.filter_by(role='org').count()
+    doc_ids = [d.id for d in all_docs]
+    status_counts   = {k: sum(1 for d in all_docs if d.status == k) for k in DOCUMENT_STATUSES}
+    recent_comments = (Comment.query
+                       .filter(Comment.document_id.in_(doc_ids))
+                       .order_by(Comment.created_at.desc()).limit(10).all()
+                       if doc_ids else [])
+
+    total_experts = User.query.filter_by(role='expert').count()
+    total_orgs    = User.query.filter(User.role.in_(['org', 'organization'])).count()
+    total_users   = total_experts + total_orgs
 
     return render_template('admin/monitoring.html',
                            docs_stats=docs_stats,
@@ -225,3 +206,41 @@ def monitoring():
                            total_experts=total_experts,
                            total_orgs=total_orgs,
                            user=user)
+
+
+# ── Rubric Proposals ─────────────────────────────────────────────────────────
+
+@admin_bp.route('/rubric-proposals')
+@role_required('admin')
+def rubric_proposals():
+    pending  = RubricProposal.query.filter_by(is_reviewed=False)\
+                                   .order_by(RubricProposal.created_at.desc()).all()
+    reviewed = RubricProposal.query.filter_by(is_reviewed=True)\
+                                   .order_by(RubricProposal.created_at.desc()).limit(20).all()
+    return render_template('admin/rubric_proposals.html',
+                           pending=pending, reviewed=reviewed, user=get_current_user())
+
+
+@admin_bp.route('/rubric-proposals/<int:proposal_id>/approve', methods=['POST'])
+@role_required('admin')
+def approve_rubric_proposal(proposal_id):
+    proposal = RubricProposal.query.get_or_404(proposal_id)
+    if not Rubric.query.filter_by(code=proposal.code).first():
+        db.session.add(Rubric(code=proposal.code, name=proposal.name,
+                              description=proposal.description or ''))
+    proposal.is_reviewed = True
+    proposal.is_approved = True
+    db.session.commit()
+    flash(f'Рубрика «{proposal.code} — {proposal.name}» создана.', 'success')
+    return redirect(url_for('admin.rubric_proposals'))
+
+
+@admin_bp.route('/rubric-proposals/<int:proposal_id>/reject', methods=['POST'])
+@role_required('admin')
+def reject_rubric_proposal(proposal_id):
+    proposal = RubricProposal.query.get_or_404(proposal_id)
+    proposal.is_reviewed = True
+    proposal.is_approved = False
+    db.session.commit()
+    flash('Предложение по добавлению рубрики отклонено.', 'info')
+    return redirect(url_for('admin.rubric_proposals'))

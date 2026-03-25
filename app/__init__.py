@@ -26,6 +26,7 @@ def create_app():
     from app.routes.notifications import notifications_bp
     from app.routes.messages import messages_bp
     from app.routes.rubrics import rubrics_bp
+    from app.routes.org import org_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
@@ -34,6 +35,7 @@ def create_app():
     app.register_blueprint(notifications_bp)
     app.register_blueprint(messages_bp)
     app.register_blueprint(rubrics_bp)
+    app.register_blueprint(org_bp)
 
     @app.context_processor
     def inject_globals():

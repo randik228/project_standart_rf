@@ -1,7 +1,8 @@
 from datetime import datetime, date, timedelta
 from app import db
 from app.models import (User, Rubric, Document, DocumentVersion, Comment,
-                        DocumentStage, Notification, Message, RubricExpert)
+                        DocumentStage, Notification, Message, RubricExpert,
+                        OrgFavoriteRubric, OrgFavoriteDocument, ExpertProposal)
 
 
 def seed_data():
@@ -46,7 +47,16 @@ def seed_data():
                    organization='ЦНИИС',
                    position='Д.т.н., профессор')
 
-    db.session.add_all([admin, org1, org2, expert1, expert2, expert3, expert4])
+    org_company = User(username='techcorp', email='techcorp@example.ru', password='demo123',
+                       role='organization', full_name='Сидорова Елена Михайловна',
+                       organization='ООО «ТехКорп»', position='Директор по развитию')
+
+    org_autodor = User(username='autodororg', email='autodor@org.ru', password='demo123',
+                       role='organization', full_name='Новикова Ирина Сергеевна',
+                       organization='ГК «Автодор»', position='Директор проектного офиса')
+
+    db.session.add_all([admin, org1, org2, org_company, org_autodor,
+                        expert1, expert2, expert3, expert4])
     db.session.flush()
 
     # ── Rubrics ───────────────────────────────────────────────────────────────
@@ -76,6 +86,13 @@ def seed_data():
     admin.rubric_id = rubrics[0].id
     org1.rubric_id  = rubrics[0].id
     org2.rubric_id  = rubrics[2].id
+    db.session.flush()
+
+    # Все эксперты привязаны к организациям
+    expert1.org_id = org_company.id
+    expert2.org_id = org_company.id
+    expert3.org_id = org_autodor.id
+    expert4.org_id = org_company.id
     db.session.flush()
 
     # ── Documents ─────────────────────────────────────────────────────────────
@@ -173,10 +190,10 @@ def seed_data():
 
     # ── Document Stages ───────────────────────────────────────────────────────
     STAGES_TEMPLATE = [
-        (1, 'Черновик',     'Подготовка и оформление текста документа организацией'),
-        (2, 'Публикация',   'Размещение документа на портале. Открытие доступа к комментариям от Экспертов'),
-        (3, 'Согласование', 'Согласование с заинтересованными федеральными органами'),
-        (4, 'Утверждение',  'Официальное утверждение и введение в действие'),
+        (1, 'Черновик',                  'Подготовка и оформление текста документа организацией'),
+        (2, 'Публикация',                'Размещение документа на портале. Открытие доступа к комментариям от Экспертов'),
+        (3, 'Загрузка итоговой версии',  'Загрузка окончательного варианта документа с учётом поступивших замечаний'),
+        (4, 'Утверждение',               'Официальное утверждение и введение в действие'),
     ]
     STATUS_ACTIVE_STAGE = {
         'draft': 1, 'published': 2,
@@ -275,6 +292,17 @@ def seed_data():
     ]
     for rubric, user in assignments:
         db.session.add(RubricExpert(rubric_id=rubric.id, user_id=user.id))
+
+    # OrgFavoriteRubric: org_company likes ИТС and УДД; org_autodor likes УДД and ЦТИ
+    db.session.add(OrgFavoriteRubric(org_id=org_company.id, rubric_id=rubrics[0].id))
+    db.session.add(OrgFavoriteRubric(org_id=org_company.id, rubric_id=rubrics[2].id))
+    db.session.add(OrgFavoriteRubric(org_id=org_autodor.id, rubric_id=rubrics[2].id))
+    db.session.add(OrgFavoriteRubric(org_id=org_autodor.id, rubric_id=rubrics[3].id))
+
+    # OrgFavoriteDocument: org_company отметила несколько документов
+    from app.models import OrgFavoriteDocument
+    db.session.add(OrgFavoriteDocument(org_id=org_company.id, document_id=docs[3].id))  # ГОСТ Р 59337-2023
+    db.session.add(OrgFavoriteDocument(org_id=org_company.id, document_id=docs[5].id))  # ГОСТ Р 57576-2024
 
     # ── Notifications ─────────────────────────────────────────────────────────
     notifications = [

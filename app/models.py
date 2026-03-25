@@ -3,11 +3,11 @@ from app import db
 
 
 DOCUMENT_STATUSES = {
-    'draft':     ('Черновик',     'secondary', 'pencil'),
-    'published': ('Публикация',   'primary',   'upload'),
-    'review':    ('Согласование', 'info',      'clipboard-check'),
-    'approved':  ('Утверждён',    'success',   'check-circle-fill'),
-    'rejected':  ('Отклонён',     'danger',    'x-circle-fill'),
+    'draft':     ('Черновик',          'secondary', 'pencil'),
+    'published': ('Публикация',        'primary',   'upload'),
+    'review':    ('Загрузка версии',   'info',      'cloud-upload'),
+    'approved':  ('Утверждён',         'success',   'check-circle-fill'),
+    'rejected':  ('Отклонён',          'danger',    'x-circle-fill'),
 }
 
 DOCUMENT_TYPES = {
@@ -45,6 +45,7 @@ class User(db.Model):
     created_at   = db.Column(db.DateTime, default=datetime.utcnow)
     phone        = db.Column(db.String(20))
     is_active    = db.Column(db.Boolean, default=True)
+    org_id       = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True)
     # For admin: rubric they manage; for org: rubric they belong to
     rubric_id    = db.Column(db.Integer, db.ForeignKey('rubrics.id'), nullable=True)
 
@@ -62,7 +63,7 @@ class User(db.Model):
         return self.username[:2].upper()
 
     def role_label(self):
-        return {'admin': 'Куратор ЭС', 'org': 'Организация', 'expert': 'Эксперт'}.get(self.role, self.role)
+        return {'admin': 'Сис. администратор', 'org': 'Разработчик', 'organization': 'Организация', 'expert': 'Эксперт'}.get(self.role, self.role)
 
     def unread_notifications(self):
         return Notification.query.filter_by(user_id=self.id, is_read=False).count()
@@ -220,3 +221,49 @@ class RubricExpert(db.Model):
 
     rubric = db.relationship('Rubric', backref='expert_assignments')
     user   = db.relationship('User', backref='rubric_assignments')
+
+
+class OrgFavoriteRubric(db.Model):
+    """Рубрики, интересные Организации."""
+    __tablename__ = 'org_favorite_rubrics'
+    id        = db.Column(db.Integer, primary_key=True)
+    org_id    = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    rubric_id = db.Column(db.Integer, db.ForeignKey('rubrics.id'), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    rubric = db.relationship('Rubric', backref='org_favorites')
+
+class OrgFavoriteDocument(db.Model):
+    """Документы, отмеченные Организацией как интересные."""
+    __tablename__ = 'org_favorite_documents'
+    id          = db.Column(db.Integer, primary_key=True)
+    org_id      = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    document_id = db.Column(db.Integer, db.ForeignKey('documents.id'), nullable=False)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ExpertProposal(db.Model):
+    """Эксперт предлагает документ на рассмотрение своей Организации."""
+    __tablename__ = 'expert_proposals'
+    id          = db.Column(db.Integer, primary_key=True)
+    expert_id   = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    org_id      = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    document_id = db.Column(db.Integer, db.ForeignKey('documents.id'), nullable=False)
+    note        = db.Column(db.Text)
+    is_reviewed = db.Column(db.Boolean, default=False)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    expert   = db.relationship('User', foreign_keys=[expert_id], backref='sent_proposals')
+    document = db.relationship('Document', backref='expert_proposals')
+
+
+class RubricProposal(db.Model):
+    """Разработчик предлагает добавить новую рубрику (на рассмотрение сис. администратора)."""
+    __tablename__ = 'rubric_proposals'
+    id          = db.Column(db.Integer, primary_key=True)
+    org_id      = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    code        = db.Column(db.String(20), nullable=False)
+    name        = db.Column(db.String(200), nullable=False)
+    description = db.Column(db.Text)
+    note        = db.Column(db.Text)
+    is_reviewed = db.Column(db.Boolean, default=False)
+    is_approved = db.Column(db.Boolean, nullable=True)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)
+    org         = db.relationship('User', foreign_keys=[org_id], backref='rubric_proposals')

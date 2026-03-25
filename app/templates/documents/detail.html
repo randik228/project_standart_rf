@@ -44,53 +44,30 @@
       <!-- Actions -->
       <div class="d-flex flex-column gap-2 align-items-end flex-shrink-0">
 
-        {# ── Org: own document status transitions ── #}
+        {# Org: mark as favorite #}
+        {% if user.role == 'organization' %}
+        <form method="POST" action="{{ url_for('documents.toggle_favorite', doc_id=doc.id) }}" class="d-inline">
+          <button type="submit"
+                  class="btn btn-sm {% if is_fav_doc %}btn-warning{% else %}btn-outline-secondary{% endif %}"
+                  title="{% if is_fav_doc %}Убрать из избранных{% else %}Добавить в избранные{% endif %}">
+            <i class="bi bi-star{% if is_fav_doc %}-fill{% endif %} me-1"></i>
+            {% if is_fav_doc %}В избранных{% else %}В избранное{% endif %}
+          </button>
+        </form>
+        {% endif %}
+
+        {# Expert: org-favorite badge #}
+        {% if user.role == 'expert' and is_org_fav %}
+        <span class="btn btn-sm btn-warning disabled" title="Отмечен вашей организацией">
+          <i class="bi bi-star-fill me-1"></i>Интересно организации
+        </span>
+        {% endif %}
+
+        {# ── Разработчик: полное управление своим документом ── #}
         {% if user.role == 'org' and doc.author_id == user.id %}
         <div class="dropdown">
           <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
             <i class="bi bi-gear me-1"></i>Управление
-          </button>
-          <ul class="dropdown-menu dropdown-menu-end shadow-sm">
-            <li><h6 class="dropdown-header">Изменить статус</h6></li>
-            {% if doc.status == 'draft' %}
-            <li>
-              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
-                <input type="hidden" name="status" value="published">
-                <button class="dropdown-item" type="submit">
-                  <i class="bi bi-upload me-2 text-primary"></i>Опубликовать
-                </button>
-              </form>
-            </li>
-            {% endif %}
-            {% if doc.status == 'published' %}
-            <li>
-              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
-                <input type="hidden" name="status" value="review">
-                <button class="dropdown-item" type="submit">
-                  <i class="bi bi-clipboard-check me-2 text-info"></i>На согласование
-                </button>
-              </form>
-            </li>
-            {% endif %}
-            {% if doc.status == 'rejected' %}
-            <li>
-              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
-                <input type="hidden" name="status" value="published">
-                <button class="dropdown-item" type="submit">
-                  <i class="bi bi-arrow-counterclockwise me-2 text-warning"></i>Вернуть в обсуждение
-                </button>
-              </form>
-            </li>
-            {% endif %}
-          </ul>
-        </div>
-        {% endif %}
-
-        {# ── Куратор ЭС: полное управление ── #}
-        {% if user.role == 'admin' %}
-        <div class="dropdown">
-          <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
-            <i class="bi bi-shield-check me-1"></i>Куратор ЭС
           </button>
           <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:230px;">
             <li><h6 class="dropdown-header">Продвинуть статус</h6></li>
@@ -109,7 +86,71 @@
               <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
                 <input type="hidden" name="status" value="review">
                 <button class="dropdown-item" type="submit">
-                  <i class="bi bi-clipboard-check me-2 text-info"></i>На согласование
+                  <i class="bi bi-cloud-upload me-2 text-info"></i>Загрузить итоговую версию
+                </button>
+              </form>
+            </li>
+            {% endif %}
+            {% if doc.status == 'review' %}
+            <li>
+              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
+                <input type="hidden" name="status" value="approved">
+                <button class="dropdown-item" type="submit">
+                  <i class="bi bi-check-circle me-2 text-success"></i>Утвердить
+                </button>
+              </form>
+            </li>
+            <li>
+              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
+                <input type="hidden" name="status" value="rejected">
+                <button class="dropdown-item" type="submit">
+                  <i class="bi bi-x-circle me-2 text-danger"></i>Отклонить
+                </button>
+              </form>
+            </li>
+            {% endif %}
+            {# Вернуть на предыдущий этап #}
+            {% set prev = {'approved':'review','review':'published','published':'draft','rejected':'published'} %}
+            {% if doc.status in prev %}
+            <li><hr class="dropdown-divider"></li>
+            <li><h6 class="dropdown-header">Вернуть назад</h6></li>
+            <li>
+              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
+                <input type="hidden" name="status" value="{{ prev[doc.status] }}">
+                <button class="dropdown-item text-secondary" type="submit">
+                  <i class="bi bi-arrow-counterclockwise me-2"></i>Вернуть: {{ DOCUMENT_STATUSES[prev[doc.status]][0] }}
+                </button>
+              </form>
+            </li>
+            {% endif %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {# ── Сис. администратор: полное управление ── #}
+        {% if user.role == 'admin' %}
+        <div class="dropdown">
+          <button class="btn btn-outline-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+            <i class="bi bi-shield-check me-1"></i>Администратор
+          </button>
+          <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="min-width:230px;">
+            <li><h6 class="dropdown-header">Продвинуть статус</h6></li>
+            {% if doc.status == 'draft' %}
+            <li>
+              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
+                <input type="hidden" name="status" value="published">
+                <button class="dropdown-item" type="submit">
+                  <i class="bi bi-upload me-2 text-primary"></i>Опубликовать
+                </button>
+              </form>
+            </li>
+            {% endif %}
+            {% if doc.status == 'published' %}
+            <li>
+              <form method="POST" action="{{ url_for('documents.set_status', doc_id=doc.id) }}">
+                <input type="hidden" name="status" value="review">
+                <button class="dropdown-item" type="submit">
+                  <i class="bi bi-cloud-upload me-2 text-info"></i>Загрузить итоговую версию
                 </button>
               </form>
             </li>
@@ -134,7 +175,7 @@
             {% endif %}
 
             {# Вернуть на предыдущий этап #}
-            {% set prev = {'approved':'review','review':'published','published':'draft'} %}
+            {% set prev = {'approved':'review','review':'published','published':'draft','rejected':'published'} %}
             {% if doc.status in prev %}
             <li><hr class="dropdown-divider"></li>
             <li><h6 class="dropdown-header">Вернуть назад</h6></li>
@@ -213,7 +254,9 @@
   <div class="col-xl-8">
 
     <!-- Add comment form -->
-    {% if user.role in ('expert', 'admin') and doc.status in ('published', 'review') %}
+    {% set can_comment = (user.role == 'admin' and doc.status in ('published', 'review')) or
+                         (user.role == 'expert' and doc.status in ('published', 'review') and is_org_fav) %}
+    {% if can_comment %}
     <div class="card mb-4">
       <div class="card-header">
         <i class="bi bi-plus-circle text-primary me-2"></i>
@@ -267,6 +310,17 @@
             </span>
           </div>
         </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {# Эксперт: пояснение если документ не в избранных организации #}
+    {% if user.role == 'expert' and doc.status in ('published', 'review') and not is_org_fav %}
+    <div class="alert alert-secondary d-flex align-items-center gap-2 mb-4" style="font-size:13px;">
+      <i class="bi bi-info-circle-fill fs-5 opacity-50"></i>
+      <div>
+        Этот документ не отмечен вашей организацией как «Интересно».
+        Замечания и предложения можно подавать только к документам, отмеченным организацией.
       </div>
     </div>
     {% endif %}
@@ -511,6 +565,34 @@
 
   </div>
 </div>
+
+{% if user.role == 'expert' and user.org_id %}
+<div class="card mt-4">
+  <div class="card-header">
+    <i class="bi bi-send text-primary me-2"></i>Предложить организации
+  </div>
+  <div class="card-body">
+    {% if expert_proposal %}
+    <div class="alert alert-success py-2 mb-0" style="font-size:13px;">
+      <i class="bi bi-check-circle me-1"></i>
+      Вы уже предложили этот документ вашей организации
+      ({{ expert_proposal.created_at.strftime('%d.%m.%Y') }}).
+    </div>
+    {% else %}
+    <form method="POST" action="{{ url_for('documents.propose_to_org', doc_id=doc.id) }}">
+      <div class="mb-3">
+        <label class="form-label" style="font-size:13px;">Примечание для организации</label>
+        <textarea name="note" class="form-control form-control-sm" rows="2"
+                  placeholder="Почему этот документ важен для вашей организации? (необязательно)"></textarea>
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary">
+        <i class="bi bi-send me-1"></i>Предложить организации на рассмотрение
+      </button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
 
 {# ── Удаление документа (только куратор) ── #}
 {% if user.role == 'admin' %}

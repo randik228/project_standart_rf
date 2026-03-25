@@ -1,0 +1,177 @@
+{% extends 'base.html' %}
+{% block title %}Дашборд — Стандарт РФ{% endblock %}
+{% block page_title %}Дашборд Организации{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <h1>Дашборд</h1>
+  <p>{{ user.organization or 'Ваша организация' }}</p>
+</div>
+
+<!-- Stat cards -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="bi bi-star-fill"></i></div>
+      <div>
+        <div class="stat-value">{{ total_docs }}</div>
+        <div class="stat-label">Избранных документов</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon green"><i class="bi bi-person-badge"></i></div>
+      <div>
+        <div class="stat-value">{{ my_experts | length }}</div>
+        <div class="stat-label">Экспертов</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon orange"><i class="bi bi-inbox"></i></div>
+      <div>
+        <div class="stat-value">{{ pending_proposals | length }}</div>
+        <div class="stat-label">Новых предложений</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-6 col-xl-3">
+    <div class="stat-card">
+      <div class="stat-icon purple"><i class="bi bi-folder2-open"></i></div>
+      <div>
+        <div class="stat-value">{{ fav_rubric_ids | length }}</div>
+        <div class="stat-label">Избранных рубрик</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-3">
+  <!-- Recent favorite docs -->
+  <div class="col-xl-8">
+    <div class="card h-100">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-star text-warning me-2"></i>Избранные документы</span>
+        <a href="{{ url_for('documents.list_documents') }}?fav_only=1"
+           class="btn btn-sm btn-outline-primary">
+          Все <i class="bi bi-arrow-right ms-1"></i>
+        </a>
+      </div>
+      <div class="card-body p-0">
+        {% if recent_fav_docs %}
+        <div class="list-group list-group-flush">
+          {% for doc in recent_fav_docs %}
+          {% set si = doc.status_info() %}
+          <a href="{{ url_for('documents.detail', doc_id=doc.id) }}"
+             class="list-group-item list-group-item-action px-4 py-3">
+            <div class="d-flex align-items-start gap-3">
+              <span class="badge bg-{{ si[1] }} mt-1 flex-shrink-0">
+                <i class="bi bi-{{ si[2] }} me-1"></i>{{ si[0] }}
+              </span>
+              <div class="flex-grow-1 min-w-0">
+                <div class="fw-semibold text-truncate" style="font-size:13.5px;">{{ doc.title }}</div>
+                <div class="text-muted mt-1" style="font-size:12px;">
+                  {{ doc.number or '—' }}
+                  {% if doc.rubric %} · {{ doc.rubric.code }}{% endif %}
+                  · {{ doc.updated_at.strftime('%d.%m.%Y') }}
+                </div>
+              </div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-5">
+          <i class="bi bi-star fs-1 d-block mb-2 opacity-25"></i>
+          Нет избранных документов.<br>
+          <a href="{{ url_for('documents.list_documents') }}" class="btn btn-sm btn-outline-primary mt-2">
+            Перейти к реестру
+          </a>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Expert proposals + experts quick list -->
+  <div class="col-xl-4">
+    <div class="card mb-3">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-inbox text-primary me-2"></i>Предложения от экспертов</span>
+        {% if pending_proposals %}
+        <span class="badge bg-danger">{{ pending_proposals | length }}</span>
+        {% endif %}
+      </div>
+      <div class="card-body p-0">
+        {% if pending_proposals %}
+        <div class="list-group list-group-flush">
+          {% for p in pending_proposals %}
+          <div class="list-group-item px-3 py-2">
+            <div class="fw-semibold" style="font-size:12.5px;">{{ p.document.title[:50] ~ '…' if p.document.title|length > 50 else p.document.title }}</div>
+            <div class="text-muted" style="font-size:11.5px;">
+              {{ p.expert.full_name }} · {{ p.created_at.strftime('%d.%m.%Y') }}
+            </div>
+            {% if p.note %}
+            <div class="text-muted fst-italic mt-1" style="font-size:11px;">{{ p.note[:80] }}</div>
+            {% endif %}
+            <a href="{{ url_for('documents.detail', doc_id=p.document_id) }}"
+               class="btn btn-sm btn-outline-primary mt-1" style="font-size:11px;">
+              Открыть
+            </a>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-4" style="font-size:13px;">
+          <i class="bi bi-inbox fs-2 d-block mb-2 opacity-25"></i>Нет новых предложений
+        </div>
+        {% endif %}
+      </div>
+      {% if pending_proposals %}
+      <div class="card-footer text-center">
+        <a href="{{ url_for('org.proposals') }}" class="btn btn-sm btn-outline-secondary">
+          Все предложения
+        </a>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span><i class="bi bi-people text-success me-2"></i>Мои эксперты</span>
+        <a href="{{ url_for('org.experts') }}" class="btn btn-sm btn-outline-success">
+          Управление
+        </a>
+      </div>
+      <div class="card-body p-0">
+        {% if my_experts %}
+        <div class="list-group list-group-flush">
+          {% for e in my_experts[:5] %}
+          <div class="list-group-item px-3 py-2 d-flex align-items-center gap-2">
+            <div style="width:28px;height:28px;border-radius:50%;background:#059669;
+                        display:flex;align-items:center;justify-content:center;
+                        font-size:10px;font-weight:700;color:#fff;flex-shrink:0;">
+              {{ e.get_initials() }}
+            </div>
+            <div class="flex-grow-1 min-w-0">
+              <div class="fw-semibold text-truncate" style="font-size:12.5px;">{{ e.full_name }}</div>
+              <div class="text-muted text-truncate" style="font-size:11px;">{{ e.position or '—' }}</div>
+            </div>
+            {% if not e.is_active %}
+            <span class="badge bg-secondary" style="font-size:10px;">Неактивен</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-center text-muted py-3" style="font-size:13px;">
+          Нет экспертов
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

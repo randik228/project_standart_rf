@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}Предложения рубрик — Стандарт РФ{% endblock %}
+{% block page_title %}Предложения рубрик{% endblock %}
+
+{% block content %}
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1>Предложения по рубрикам</h1>
+    <p>Разработчики предлагают добавить новые рубрики в рубрикатор</p>
+  </div>
+  <a href="{{ url_for('rubrics.index') }}" class="btn btn-outline-secondary btn-sm">
+    <i class="bi bi-folder2-open me-1"></i>Рубрикатор
+  </a>
+</div>
+
+{% if pending %}
+<div class="card mb-4">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="bi bi-hourglass-split text-warning me-1"></i>
+    Ожидают рассмотрения
+    <span class="badge bg-warning text-dark">{{ pending | length }}</span>
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Код</th>
+          <th>Наименование</th>
+          <th>Описание</th>
+          <th>Разработчик</th>
+          <th>Примечание</th>
+          <th>Дата</th>
+          <th class="text-center">Действия</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pending %}
+        <tr>
+          <td><span class="badge bg-primary fs-6">{{ p.code }}</span></td>
+          <td class="fw-semibold" style="font-size:13.5px;">{{ p.name }}</td>
+          <td class="text-muted" style="font-size:12.5px;max-width:200px;">{{ p.description or '—' }}</td>
+          <td style="font-size:13px;">
+            <div>{{ p.org.full_name }}</div>
+            <div class="text-muted" style="font-size:11.5px;">{{ p.org.organization or '' }}</div>
+          </td>
+          <td class="text-muted" style="font-size:12px;max-width:150px;font-style:italic;">{{ p.note or '—' }}</td>
+          <td class="text-muted" style="font-size:12px;white-space:nowrap;">{{ p.created_at.strftime('%d.%m.%Y') }}</td>
+          <td class="text-center">
+            <div class="d-flex gap-1 justify-content-center">
+              <form method="POST" action="{{ url_for('admin.approve_rubric_proposal', proposal_id=p.id) }}">
+                <button type="submit" class="btn btn-sm btn-success" title="Создать рубрику">
+                  <i class="bi bi-check-lg me-1"></i>Создать
+                </button>
+              </form>
+              <form method="POST" action="{{ url_for('admin.reject_rubric_proposal', proposal_id=p.id) }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Отклонить">
+                  <i class="bi bi-x-lg"></i>
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="card mb-4">
+  <div class="card-body text-center py-4 text-muted">
+    <i class="bi bi-folder-check fs-1 d-block mb-2 opacity-25"></i>
+    Нет новых предложений по рубрикам
+  </div>
+</div>
+{% endif %}
+
+{% if reviewed %}
+<div class="card">
+  <div class="card-header text-muted">
+    <i class="bi bi-archive me-1"></i>Рассмотренные
+  </div>
+  <div class="card-body p-0">
+    <table class="table table-hover mb-0">
+      <thead>
+        <tr>
+          <th>Код</th>
+          <th>Наименование</th>
+          <th>Разработчик</th>
+          <th>Дата</th>
+          <th class="text-center">Решение</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in reviewed %}
+        <tr>
+          <td><span class="badge bg-secondary">{{ p.code }}</span></td>
+          <td style="font-size:13px;">{{ p.name }}</td>
+          <td style="font-size:12.5px;">{{ p.org.full_name }}</td>
+          <td class="text-muted" style="font-size:12px;">{{ p.created_at.strftime('%d.%m.%Y') }}</td>
+          <td class="text-center">
+            {% if p.is_approved %}
+            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Рубрика создана</span>
+            {% else %}
+            <span class="badge bg-secondary"><i class="bi bi-x-circle me-1"></i>Отклонено</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

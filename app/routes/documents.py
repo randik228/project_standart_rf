@@ -3,17 +3,18 @@ from datetime import datetime, date, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
 from werkzeug.utils import secure_filename
 from app import db
+from sqlalchemy import false as sqla_false
 from app.models import (User, Document, DocumentVersion, Comment, DocumentStage,
-                        Rubric, Notification, DOCUMENT_STATUSES, DOCUMENT_TYPES)
+                        Rubric, Notification, DOCUMENT_STATUSES, DOCUMENT_TYPES, RubricExpert)
 from app.utils import login_required, role_required, get_current_user
 
 documents_bp = Blueprint('documents', __name__, url_prefix='/documents')
 
 STAGES_TEMPLATE = [
-    (1, 'Черновик',     'Подготовка и оформление текста документа организацией'),
-    (2, 'Публикация',   'Размещение документа на портале. Открытие доступа к комментариям от Экспертов'),
-    (3, 'Согласование', 'Согласование с заинтересованными федеральными органами'),
-    (4, 'Утверждение',  'Официальное утверждение и введение в действие'),
+    (1, 'Черновик',                  'Подготовка и оформление текста документа организацией'),
+    (2, 'Публикация',                'Размещение документа на портале. Открытие доступа к комментариям от Экспертов'),
+    (3, 'Загрузка итоговой версии',  'Загрузка окончательного варианта документа с учётом поступивших замечаний'),
+    (4, 'Утверждение',               'Официальное утверждение и введение в действие'),
 ]
 
 
@@ -23,6 +24,8 @@ def list_documents():
     user = get_current_user()
 
     q = Document.query
+    # Сис. администратор видит все документы (без ограничений)
+
     status_f = request.args.get('status', '')
     rubric_f = request.args.get('rubric', '')
     type_f   = request.args.get('type', '')
@@ -38,15 +41,53 @@ def list_documents():
         q = q.filter(Document.title.ilike(f'%{search}%') |
                      Document.number.ilike(f'%{search}%'))
 
+    # Организация: видит только опубликованные/согласованные/утверждённые
+    if user.role == 'organization':
+        q = q.filter(Document.status.in_(['published', 'review', 'approved']))
+        # Только избранные рубрики — опциональный фильтр
+        if request.args.get('fav_only') == '1':
+            from app.models import OrgFavoriteRubric
+            fav_ids = [f.rubric_id for f in
+                       OrgFavoriteRubric.query.filter_by(org_id=user.id).all()]
+            if fav_ids:
+                q = q.filter(Document.rubric_id.in_(fav_ids))
+
+    # Эксперт: только рубрики, назначенные его организацией
+    if user.role == 'expert':
+        from app.models import RubricExpert
+        rubric_ids = [re.rubric_id for re in
+                      RubricExpert.query.filter_by(user_id=user.id).all()]
+        if rubric_ids:
+            q = q.filter(Document.rubric_id.in_(rubric_ids),
+                         Document.status.in_(['published', 'review']))
+        else:
+            q = q.filter(sqla_false())
+
     documents = q.order_by(Document.updated_at.desc()).all()
-    rubrics   = Rubric.query.all()
+    rubrics = Rubric.query.all()
+
+    from app.models import OrgFavoriteRubric, OrgFavoriteDocument
+    fav_rubric_ids  = set()
+    fav_doc_ids     = set()
+    org_fav_doc_ids = set()   # избранные организации — для отметки у экспертов
+
+    if user.role == 'organization':
+        fav_rubric_ids = {f.rubric_id for f in OrgFavoriteRubric.query.filter_by(org_id=user.id).all()}
+        fav_doc_ids    = {f.document_id for f in OrgFavoriteDocument.query.filter_by(org_id=user.id).all()}
+
+    if user.role == 'expert' and user.org_id:
+        org_fav_doc_ids = {f.document_id for f in OrgFavoriteDocument.query.filter_by(org_id=user.org_id).all()}
 
     return render_template('documents/list.html',
                            documents=documents, rubrics=rubrics,
                            DOCUMENT_STATUSES=DOCUMENT_STATUSES,
                            DOCUMENT_TYPES=DOCUMENT_TYPES,
                            status_filter=status_f, rubric_filter=rubric_f,
-                           type_filter=type_f, search=search, user=user)
+                           type_filter=type_f, search=search, user=user,
+                           fav_rubric_ids=fav_rubric_ids,
+                           fav_doc_ids=fav_doc_ids,
+                           org_fav_doc_ids=org_fav_doc_ids,
+                           fav_only=request.args.get('fav_only', ''))
 
 
 @documents_bp.route('/<int:doc_id>')
@@ -54,9 +95,26 @@ def list_documents():
 def detail(doc_id):
     user = get_current_user()
     doc  = Document.query.get_or_404(doc_id)
+
+    from app.models import OrgFavoriteDocument, ExpertProposal
+    is_fav_doc   = False
+    is_org_fav   = False   # True когда документ в избранном у организации эксперта
+    proposals_by_me = None
+
+    if user.role == 'organization':
+        is_fav_doc = bool(OrgFavoriteDocument.query.filter_by(org_id=user.id, document_id=doc_id).first())
+
+    if user.role == 'expert' and user.org_id:
+        is_org_fav = bool(OrgFavoriteDocument.query.filter_by(org_id=user.org_id, document_id=doc_id).first())
+        proposals_by_me = ExpertProposal.query.filter_by(
+            expert_id=user.id, document_id=doc_id).first()
+
     return render_template('documents/detail.html', doc=doc, user=user,
                            DOCUMENT_STATUSES=DOCUMENT_STATUSES,
-                           DOCUMENT_TYPES=DOCUMENT_TYPES)
+                           DOCUMENT_TYPES=DOCUMENT_TYPES,
+                           is_fav_doc=is_fav_doc,
+                           is_org_fav=is_org_fav,
+                           expert_proposal=proposals_by_me)
 
 
 @documents_bp.route('/add', methods=['GET', 'POST'])
@@ -69,6 +127,19 @@ def add():
         title     = request.form.get('title', '').strip()
         number    = request.form.get('number', '').strip()
         rubric_id = request.form.get('rubric_id') or None
+        # Inline rubric creation
+        new_rubric_code = request.form.get('new_rubric_code', '').strip().upper()
+        new_rubric_name = request.form.get('new_rubric_name', '').strip()
+        if new_rubric_code and new_rubric_name:
+            existing_r = Rubric.query.filter_by(code=new_rubric_code).first()
+            if existing_r:
+                rubric_id = existing_r.id
+            else:
+                nr = Rubric(code=new_rubric_code, name=new_rubric_name,
+                            description=f'Создана разработчиком при добавлении документа')
+                db.session.add(nr)
+                db.session.flush()
+                rubric_id = nr.id
         doc_type  = request.form.get('doc_type', 'standard')
         desc      = request.form.get('description', '').strip()
         dl_str    = request.form.get('discussion_deadline', '')
@@ -147,26 +218,6 @@ def set_status(doc_id):
         flash('Недопустимый статус.', 'danger')
         return redirect(url_for('documents.detail', doc_id=doc_id))
 
-    # Role-based transition rules
-    admin_only = {'approved', 'rejected'}
-
-    # Allowed org transitions: draft→published, published→review, rejected→published
-    ORG_TRANSITIONS = {
-        'draft':     {'published'},
-        'published': {'review'},
-        'rejected':  {'published'},
-    }
-
-    if new_status in admin_only and user.role != 'admin':
-        flash('Утверждать и отклонять документы может только Куратор ЭС.', 'danger')
-        return redirect(url_for('documents.detail', doc_id=doc_id))
-
-    if user.role == 'org':
-        allowed_targets = ORG_TRANSITIONS.get(doc.status, set())
-        if new_status not in allowed_targets:
-            flash('Недостаточно прав или недопустимый переход статуса.', 'danger')
-            return redirect(url_for('documents.detail', doc_id=doc_id))
-
     # Require uploaded file before publishing
     if new_status == 'published' and not doc.latest_version():
         flash('Нельзя опубликовать документ без загруженного файла. Загрузите файл в разделе «Версии».', 'warning')
@@ -205,9 +256,19 @@ def add_comment(doc_id):
     user = get_current_user()
     doc  = Document.query.get_or_404(doc_id)
 
-    if user.role == 'org':
-        flash('Организации не могут подавать замечания. Используйте ответ разработчика.', 'warning')
+    if user.role in ('org', 'organization'):
+        flash('Оставлять замечания могут только эксперты.', 'warning')
         return redirect(url_for('documents.detail', doc_id=doc_id))
+
+    # Эксперт: только к документам, отмеченным его организацией
+    if user.role == 'expert':
+        if not user.org_id:
+            flash('Только эксперты, привязанные к организации, могут оставлять замечания.', 'warning')
+            return redirect(url_for('documents.detail', doc_id=doc_id))
+        from app.models import OrgFavoriteDocument
+        if not OrgFavoriteDocument.query.filter_by(org_id=user.org_id, document_id=doc_id).first():
+            flash('Замечания можно оставлять только к документам, отмеченным вашей организацией как «Интересно».', 'warning')
+            return redirect(url_for('documents.detail', doc_id=doc_id))
 
     ctype              = request.form.get('comment_type', 'remark')
     structural_element = request.form.get('structural_element', '').strip()
@@ -316,10 +377,51 @@ def upload_version(doc_id):
     return redirect(url_for('documents.detail', doc_id=doc_id))
 
 
+@documents_bp.route('/<int:doc_id>/toggle-favorite', methods=['POST'])
+@role_required('organization')
+def toggle_favorite(doc_id):
+    from app.models import OrgFavoriteDocument
+    org = get_current_user()
+    existing = OrgFavoriteDocument.query.filter_by(org_id=org.id, document_id=doc_id).first()
+    if existing:
+        db.session.delete(existing)
+        db.session.commit()
+        flash('Документ убран из избранных.', 'info')
+    else:
+        db.session.add(OrgFavoriteDocument(org_id=org.id, document_id=doc_id))
+        db.session.commit()
+        flash('Документ добавлен в избранные.', 'success')
+    return redirect(url_for('documents.detail', doc_id=doc_id))
+
+
+@documents_bp.route('/<int:doc_id>/propose', methods=['POST'])
+@role_required('expert')
+def propose_to_org(doc_id):
+    from app.models import ExpertProposal
+    expert = get_current_user()
+    if not expert.org_id:
+        flash('Вы не привязаны к организации.', 'danger')
+        return redirect(url_for('documents.detail', doc_id=doc_id))
+    note = request.form.get('note', '').strip()
+    existing = ExpertProposal.query.filter_by(
+        expert_id=expert.id, document_id=doc_id).first()
+    if existing:
+        flash('Вы уже предложили этот документ своей организации.', 'warning')
+    else:
+        db.session.add(ExpertProposal(
+            expert_id=expert.id, org_id=expert.org_id,
+            document_id=doc_id, note=note or None))
+        db.session.commit()
+        flash('Документ предложен вашей организации на рассмотрение.', 'success')
+    return redirect(url_for('documents.detail', doc_id=doc_id))
+
+
 @documents_bp.route('/<int:doc_id>/delete', methods=['POST'])
 @role_required('admin')
 def delete_document(doc_id):
-    doc = Document.query.get_or_404(doc_id)
+    user = get_current_user()
+    doc  = Document.query.get_or_404(doc_id)
+
     # Delete related records
     Comment.query.filter_by(document_id=doc_id).delete()
     DocumentVersion.query.filter_by(document_id=doc_id).delete()

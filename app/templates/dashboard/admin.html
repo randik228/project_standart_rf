@@ -1,11 +1,19 @@
 {% extends 'base.html' %}
 {% block title %}Дашборд — Стандарт РФ{% endblock %}
-{% block page_title %}Дашборд Куратора ЭС{% endblock %}
+{% block page_title %}Панель администратора{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Дашборд</h1>
-  <p>Сводная информация по порталу «Стандарт РФ»</p>
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1>Панель администратора</h1>
+    <p>Сводная информация по всему порталу «Стандарт РФ»</p>
+  </div>
+  {% if pending_rubric_proposals > 0 %}
+  <a href="{{ url_for('admin.rubric_proposals') }}" class="btn btn-warning">
+    <i class="bi bi-folder-plus me-1"></i>
+    Предложения рубрик <span class="badge bg-dark ms-1">{{ pending_rubric_proposals }}</span>
+  </a>
+  {% endif %}
 </div>
 
 <!-- ── Stat cards ─────────────────────────────────────────────────── -->
@@ -24,7 +32,7 @@
       <div class="stat-icon orange"><i class="bi bi-chat-square-dots"></i></div>
       <div>
         <div class="stat-value">{{ discussion_docs }}</div>
-        <div class="stat-label">Опубликовано</div>
+        <div class="stat-label">На обсуждении</div>
       </div>
     </div>
   </div>
@@ -42,7 +50,7 @@
       <div class="stat-icon green"><i class="bi bi-people"></i></div>
       <div>
         <div class="stat-value">{{ total_experts }}</div>
-        <div class="stat-label">Экспертов в базе</div>
+        <div class="stat-label">Экспертов / {{ total_orgs }} орг.</div>
       </div>
     </div>
   </div>

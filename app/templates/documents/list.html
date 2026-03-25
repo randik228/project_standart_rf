@@ -59,6 +59,16 @@
   </div>
 </form>
 
+{% if user.role == 'organization' %}
+<div class="mb-3">
+  <a href="{{ url_for('documents.list_documents') }}{% if fav_only | default('') != '1' %}?fav_only=1{% endif %}"
+     class="btn btn-sm {% if fav_only | default('') == '1' %}btn-warning{% else %}btn-outline-secondary{% endif %}">
+    <i class="bi bi-star{% if fav_only | default('') == '1' %}-fill{% endif %} me-1"></i>
+    {% if fav_only | default('') == '1' %}Показать все{% else %}Только избранные рубрики{% endif %}
+  </a>
+</div>
+{% endif %}
+
 <!-- Results count -->
 <div class="d-flex align-items-center justify-content-between mb-3">
   <p class="text-muted mb-0" style="font-size:13px;">
@@ -99,6 +109,16 @@
           {% if doc.rubric %}
           <span class="badge bg-light text-dark border" style="font-size:11px;">
             <i class="bi bi-folder me-1"></i>{{ doc.rubric.code }} · {{ doc.rubric.name }}
+          </span>
+          {% endif %}
+          {% if user.role == 'organization' and doc.id in fav_doc_ids | default({}) %}
+          <span class="badge bg-warning text-dark ms-1" title="В избранных">
+            <i class="bi bi-star-fill"></i>
+          </span>
+          {% endif %}
+          {% if user.role == 'expert' and doc.id in org_fav_doc_ids | default({}) %}
+          <span class="badge bg-warning text-dark ms-1" title="Интересно вашей организации">
+            <i class="bi bi-star-fill me-1"></i>Интересно организации
           </span>
           {% endif %}
           <span><i class="bi bi-building me-1"></i>{{ doc.author.organization }}</span>

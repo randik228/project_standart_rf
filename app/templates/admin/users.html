@@ -1,72 +1,67 @@
 {% extends 'base.html' %}
 {% block title %}Пользователи — Стандарт РФ{% endblock %}
-{% block page_title %}Пользователи рубрики{% endblock %}
+{% block page_title %}Управление пользователями{% endblock %}
 
 {% block content %}
 <div class="page-header d-flex align-items-start justify-content-between">
   <div>
-    <h1>Пользователи</h1>
-    <p>Участники рубрики «{{ my_rubric.name if my_rubric else '—' }}»</p>
+    <h1>Пользователи системы</h1>
+    <p>Все аккаунты портала — разработчики, организации и эксперты</p>
   </div>
-  {% if my_rubric %}
   <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
     <i class="bi bi-person-plus me-1"></i>Создать аккаунт
   </button>
-  {% endif %}
 </div>
 
-{% if not my_rubric %}
-<!-- No rubric assigned -->
-<div class="alert alert-warning d-flex align-items-center gap-3" style="font-size:14px;">
-  <i class="bi bi-exclamation-triangle-fill fs-4"></i>
-  <div>
-    <strong>Вам не назначена рубрика.</strong><br>
-    Обратитесь к администратору системы для привязки вашего аккаунта к рубрике.
-  </div>
-</div>
-{% else %}
-
-<!-- ── Рубрика-шапка ──────────────────────────────────────────────── -->
-<div class="card mb-4" style="border-left:4px solid #7c3aed;">
-  <div class="card-body py-3">
-    <div class="d-flex align-items-center gap-3">
-      <div style="width:44px;height:44px;border-radius:10px;background:#7c3aed;
-                  display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-        <i class="bi bi-folder2-open text-white fs-5"></i>
-      </div>
+<!-- Stat strip -->
+<div class="row g-3 mb-4">
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-icon blue"><i class="bi bi-building"></i></div>
       <div>
-        <div class="fw-semibold" style="font-size:15px;">{{ my_rubric.code }} — {{ my_rubric.name }}</div>
-        <div class="text-muted" style="font-size:12.5px;">
-          {{ my_rubric.description or 'Ваша рубрика' }}
-        </div>
+        <div class="stat-value">{{ orgs | length }}</div>
+        <div class="stat-label">Разработчиков / Организаций</div>
       </div>
-      <div class="ms-auto d-flex gap-3 text-center">
-        <div>
-          <div class="fw-bold" style="font-size:18px;color:#7c3aed;">
-            {{ rubric_users | selectattr('role','eq','org') | list | length }}
-          </div>
-          <div class="text-muted" style="font-size:11.5px;">Организаций</div>
-        </div>
-        <div style="width:1px;background:#e5e7eb;"></div>
-        <div>
-          <div class="fw-bold" style="font-size:18px;color:#059669;">
-            {{ rubric_users | selectattr('role','eq','expert') | list | length }}
-          </div>
-          <div class="text-muted" style="font-size:11.5px;">Экспертов</div>
-        </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-icon green"><i class="bi bi-person-badge"></i></div>
+      <div>
+        <div class="stat-value">{{ experts | length }}</div>
+        <div class="stat-label">Экспертов</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-sm-4">
+    <div class="stat-card">
+      <div class="stat-icon orange"><i class="bi bi-people"></i></div>
+      <div>
+        <div class="stat-value">{{ all_users | length }}</div>
+        <div class="stat-label">Всего пользователей</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- ── Пользователи рубрики ─────────────────────────────────────── -->
-<div class="card mb-4">
-  <div class="card-header d-flex align-items-center justify-content-between">
-    <span><i class="bi bi-people text-primary me-2"></i>Участники рубрики</span>
-    <span class="badge bg-secondary">{{ rubric_users | length }}</span>
+<!-- Search + role filter -->
+<div class="d-flex gap-2 mb-3 flex-wrap">
+  <div class="input-group" style="max-width:340px;">
+    <span class="input-group-text bg-white"><i class="bi bi-search text-muted" style="font-size:13px;"></i></span>
+    <input type="text" id="userSearch" class="form-control border-start-0"
+           placeholder="Поиск по ФИО, логину, организации…" oninput="filterUsers(this.value)">
   </div>
+  <div class="d-flex gap-1" id="roleFilter">
+    <button type="button" class="btn btn-sm btn-primary role-btn" data-role="all">Все</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary role-btn" data-role="org">Разработчик</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary role-btn" data-role="organization">Организация</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary role-btn" data-role="expert">Эксперт</button>
+  </div>
+</div>
+
+<!-- Users table -->
+<div class="card">
   <div class="card-body p-0">
-    {% if rubric_users %}
     <table class="table table-hover mb-0">
       <thead>
         <tr>
@@ -74,20 +69,25 @@
           <th>Роль</th>
           <th>Организация / Должность</th>
           <th>Логин</th>
-          <th>Телефон</th>
           <th>Статус</th>
           <th></th>
         </tr>
       </thead>
-      <tbody>
-        {% set role_colors = {'org':'primary','expert':'success'} %}
-        {% set role_labels = {'org':'Организация','expert':'Эксперт'} %}
-        {% for u in rubric_users | sort(attribute='role') %}
-        <tr>
+      <tbody id="usersTableBody">
+        {% set role_colors = {'org':'primary','organization':'info','expert':'success','admin':'danger'} %}
+        {% set role_labels = {'org':'Разработчик','organization':'Организация','expert':'Эксперт','admin':'Администратор'} %}
+        {% for u in all_users %}
+        <tr class="user-row"
+            data-name="{{ u.full_name | lower }}"
+            data-username="{{ u.username | lower }}"
+            data-org="{{ (u.organization or '') | lower }}"
+            data-role="{{ u.role }}">
           <td>
             <div class="d-flex align-items-center gap-2">
-              <div class="user-avatar" style="width:32px;height:32px;font-size:11px;
-                   background:{{ {'org':'#2563eb','expert':'#059669'}.get(u.role,'#6b7280') }}">
+              <div style="width:34px;height:34px;border-radius:50%;flex-shrink:0;
+                          display:flex;align-items:center;justify-content:center;
+                          font-size:11px;font-weight:700;color:#fff;
+                          background:{{ {'org':'#2563eb','organization':'#0891b2','expert':'#059669','admin':'#dc2626'}.get(u.role,'#6b7280') }};">
                 {{ u.get_initials() }}
               </div>
               <div>
@@ -104,9 +104,18 @@
           <td style="font-size:12.5px;">
             <div>{{ u.organization or '—' }}</div>
             <div class="text-muted" style="font-size:11.5px;">{{ u.position or '' }}</div>
+            {% if u.role == 'expert' and u.org_id %}
+            {% set org_user = all_users | selectattr('id','eq',u.org_id) | first %}
+            {% if org_user %}
+            <div class="mt-1">
+              <span class="badge bg-light text-dark border" style="font-size:10px;">
+                <i class="bi bi-building me-1"></i>{{ org_user.organization or org_user.full_name }}
+              </span>
+            </div>
+            {% endif %}
+            {% endif %}
           </td>
           <td><code style="font-size:12px;background:#f3f4f6;padding:2px 6px;border-radius:4px;">{{ u.username }}</code></td>
-          <td class="text-muted" style="font-size:12.5px;">{{ u.phone or '—' }}</td>
           <td>
             {% if u.is_active %}
             <span class="badge bg-success">Активен</span>
@@ -115,127 +124,33 @@
             {% endif %}
           </td>
           <td>
-            <div class="d-flex gap-1">
-              <!-- Активировать / Деактивировать -->
-              <form method="POST" action="{{ url_for('admin.toggle_user', user_id=u.id) }}">
-                <button type="submit" class="btn btn-sm {% if u.is_active %}btn-outline-secondary{% else %}btn-outline-success{% endif %}"
-                        style="padding:2px 8px;font-size:11.5px;"
-                        title="{% if u.is_active %}Деактивировать{% else %}Активировать{% endif %}">
-                  <i class="bi bi-{% if u.is_active %}pause-circle{% else %}play-circle{% endif %}"></i>
-                </button>
-              </form>
-              <!-- Убрать из рубрики -->
-              <form method="POST" action="{{ url_for('admin.remove_from_rubric', target_id=u.id) }}"
-                    onsubmit="return confirm('Открепить «{{ u.full_name }}» от рубрики?')">
-                <button type="submit" class="btn btn-sm btn-outline-danger"
-                        style="padding:2px 8px;font-size:11.5px;"
-                        title="Убрать из рубрики">
-                  <i class="bi bi-person-dash"></i>
-                </button>
-              </form>
-            </div>
+            <form method="POST" action="{{ url_for('admin.toggle_user', user_id=u.id) }}">
+              <button type="submit"
+                      class="btn btn-sm {% if u.is_active %}btn-outline-secondary{% else %}btn-outline-success{% endif %}"
+                      style="padding:2px 8px;font-size:11.5px;"
+                      title="{% if u.is_active %}Деактивировать{% else %}Активировать{% endif %}">
+                <i class="bi bi-{% if u.is_active %}pause-circle{% else %}play-circle{% endif %}"></i>
+              </button>
+            </form>
           </td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
-    {% else %}
-    <div class="text-center text-muted py-5" style="font-size:14px;">
-      <i class="bi bi-people fs-1 d-block mb-3 text-secondary opacity-50"></i>
-      В рубрике пока нет участников.<br>
-      <span style="font-size:12.5px;">Создайте новый аккаунт или добавьте существующего пользователя.</span>
-    </div>
-    {% endif %}
-  </div>
-</div>
-
-<!-- ── Добавить существующего пользователя ───────────────────────── -->
-{% if other_users %}
-<div class="card">
-  <div class="card-header d-flex align-items-center justify-content-between">
-    <span><i class="bi bi-person-plus text-success me-2"></i>
-      Добавить в рубрику «{{ my_rubric.name }}»</span>
-    <span class="badge bg-secondary">{{ other_users | length }} доступно</span>
-  </div>
-  <div class="card-body">
-
-    <!-- Фильтр по роли + поиск -->
-    <div class="d-flex gap-2 mb-3 flex-wrap">
-      <div class="input-group" style="max-width:320px;">
-        <span class="input-group-text bg-white">
-          <i class="bi bi-search text-muted" style="font-size:13px;"></i>
-        </span>
-        <input type="text" id="outerSearch" class="form-control border-start-0"
-               placeholder="Поиск по ФИО, организации…" oninput="filterOther(this.value)">
-      </div>
-      <div class="d-flex gap-1" id="outerRoleFilter">
-        <button type="button" class="btn btn-sm btn-primary outer-role-btn" data-role="all">Все</button>
-        <button type="button" class="btn btn-sm btn-outline-secondary outer-role-btn" data-role="org">
-          <i class="bi bi-building me-1"></i>Организации
-        </button>
-        <button type="button" class="btn btn-sm btn-outline-secondary outer-role-btn" data-role="expert">
-          <i class="bi bi-person-badge me-1"></i>Эксперты
-        </button>
-      </div>
-    </div>
-
-    <div id="outerUserList" class="row g-2">
-      {% for u in other_users %}
-      <div class="col-md-6 col-xl-4 outer-user-item"
-           data-name="{{ u.full_name | lower }}"
-           data-org="{{ (u.organization or '') | lower }}"
-           data-role="{{ u.role }}">
-        <div class="border rounded p-3 d-flex align-items-center gap-3 h-100"
-             style="background:#fafafa;">
-          <div style="width:38px;height:38px;border-radius:50%;flex-shrink:0;
-                      display:flex;align-items:center;justify-content:center;
-                      font-size:12px;font-weight:700;color:#fff;
-                      background:{{ {'org':'#2563eb','expert':'#059669'}.get(u.role,'#6b7280') }};">
-            {{ u.get_initials() }}
-          </div>
-          <div class="flex-grow-1 min-w-0">
-            <div class="fw-semibold text-truncate" style="font-size:13px;">{{ u.full_name }}</div>
-            <div class="text-muted text-truncate" style="font-size:11.5px;">{{ u.organization or '—' }}</div>
-            <span class="badge bg-{{ {'org':'primary','expert':'success'}.get(u.role,'secondary') }}"
-                  style="font-size:10px;">
-              {{ {'org':'Организация','expert':'Эксперт'}.get(u.role, u.role) }}
-            </span>
-          </div>
-          <form method="POST" action="{{ url_for('admin.add_to_rubric') }}" class="flex-shrink-0">
-            <input type="hidden" name="user_id" value="{{ u.id }}">
-            <button type="submit" class="btn btn-sm btn-outline-primary"
-                    style="white-space:nowrap;font-size:12px;" title="Добавить в рубрику">
-              <i class="bi bi-plus-circle me-1"></i>В рубрику
-            </button>
-          </form>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    <div id="outerNoMatch" class="text-center text-muted py-3" style="display:none;font-size:13px;">
-      <i class="bi bi-person-x me-1"></i>Ничего не найдено
+    <div id="noUsersFound" class="text-center text-muted py-5" style="display:none;font-size:13px;">
+      <i class="bi bi-person-x fs-1 d-block mb-2 opacity-25"></i>
+      По вашему запросу пользователи не найдены
     </div>
   </div>
 </div>
-{% endif %}
 
-{% endif %}{# /if my_rubric #}
-
-
-<!-- ═══════════ Create User Modal ════════════════════════════════════════════ -->
+<!-- Create User Modal -->
 <div class="modal fade" id="createUserModal" tabindex="-1">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
       <form method="POST" action="{{ url_for('admin.create_user') }}">
         <div class="modal-header">
-          <h5 class="modal-title">
-            <i class="bi bi-person-plus me-2"></i>Создать аккаунт
-            {% if my_rubric %}
-            <small class="text-muted fw-normal" style="font-size:13px;">
-              — будет прикреплён к рубрике «{{ my_rubric.name }}»
-            </small>
-            {% endif %}
-          </h5>
+          <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Создать аккаунт</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
         </div>
         <div class="modal-body">
@@ -249,34 +164,28 @@
               <label class="form-label fw-semibold">Роль <span class="text-danger">*</span></label>
               <select name="role" class="form-select" required>
                 <option value="">— Выберите роль —</option>
-                <option value="org">Организация</option>
+                <option value="org">Разработчик</option>
+                <option value="organization">Организация</option>
                 <option value="expert">Эксперт</option>
+                <option value="admin">Администратор</option>
               </select>
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Email <span class="text-danger">*</span></label>
-              <input type="email" name="email" class="form-control"
-                     placeholder="user@example.ru" required>
+              <input type="email" name="email" class="form-control" placeholder="user@example.ru" required>
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Логин <span class="text-danger">*</span></label>
-              <input type="text" name="username" class="form-control"
-                     placeholder="username" required>
+              <input type="text" name="username" class="form-control" placeholder="username" required>
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Пароль <span class="text-danger">*</span></label>
               <div class="input-group">
                 <input type="text" name="password" id="passwordInput" class="form-control"
                        placeholder="Временный пароль" required>
-                <button type="button" class="btn btn-outline-secondary" id="genPasswordBtn"
-                        title="Сгенерировать пароль">
+                <button type="button" class="btn btn-outline-secondary" id="genPasswordBtn" title="Сгенерировать">
                   <i class="bi bi-arrow-clockwise"></i>
                 </button>
-              </div>
-              <div class="form-text" id="passwordHint" style="display:none;">
-                <i class="bi bi-clipboard me-1"></i>
-                <span id="passwordHintText"></span>
-                <a href="#" id="copyPasswordLink" style="font-size:11.5px;">Скопировать</a>
               </div>
             </div>
             <div class="col-md-6">
@@ -286,22 +195,13 @@
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Организация</label>
-              <input type="text" name="organization" class="form-control"
-                     placeholder="Название организации">
+              <input type="text" name="organization" class="form-control" placeholder="Название организации">
             </div>
             <div class="col-md-6">
               <label class="form-label fw-semibold">Должность</label>
-              <input type="text" name="position" class="form-control"
-                     placeholder="Должность / специализация">
+              <input type="text" name="position" class="form-control" placeholder="Должность / специализация">
             </div>
           </div>
-          {% if my_rubric %}
-          <div class="alert alert-info mt-3 mb-0 py-2 px-3" style="font-size:12.5px;">
-            <i class="bi bi-info-circle me-1"></i>
-            Новый пользователь будет автоматически прикреплён к рубрике
-            <strong>«{{ my_rubric.code }} — {{ my_rubric.name }}»</strong>.
-          </div>
-          {% endif %}
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
@@ -317,34 +217,19 @@
 
 {% block scripts %}
 <script>
-/* ── Password generator ─────────────────────────────────── */
 const CHARS = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const SPEC  = '!@#$%&*';
 function genPassword() {
   let pwd = '';
   for (let i = 0; i < 10; i++) pwd += CHARS[Math.floor(Math.random() * CHARS.length)];
-  const p1 = Math.floor(Math.random() * pwd.length);
-  const p2 = Math.floor(Math.random() * pwd.length);
-  pwd = pwd.slice(0,p1) + SPEC[Math.floor(Math.random() * SPEC.length)] + pwd.slice(p1);
-  pwd = pwd.slice(0,p2) + '0123456789'[Math.floor(Math.random() * 10)] + pwd.slice(p2);
+  const p = Math.floor(Math.random() * pwd.length);
+  pwd = pwd.slice(0,p) + SPEC[Math.floor(Math.random() * SPEC.length)] + pwd.slice(p);
   return pwd;
 }
 document.getElementById('genPasswordBtn')?.addEventListener('click', () => {
-  const pwd = genPassword();
-  document.getElementById('passwordInput').value = pwd;
-  document.getElementById('passwordHintText').textContent = pwd + ' — ';
-  document.getElementById('passwordHint').style.display = 'block';
-});
-document.getElementById('copyPasswordLink')?.addEventListener('click', e => {
-  e.preventDefault();
-  navigator.clipboard.writeText(document.getElementById('passwordInput').value).then(() => {
-    const lnk = document.getElementById('copyPasswordLink');
-    lnk.textContent = 'Скопировано!';
-    setTimeout(() => { lnk.textContent = 'Скопировать'; }, 2000);
-  });
+  document.getElementById('passwordInput').value = genPassword();
 });
 
-/* ── Phone mask +7 ──────────────────────────────────────── */
 const phoneInput = document.getElementById('phoneInput');
 if (phoneInput) {
   phoneInput.addEventListener('input', function() {
@@ -352,48 +237,40 @@ if (phoneInput) {
     if (d.startsWith('7') || d.startsWith('8')) d = d.slice(1);
     d = d.slice(0,10);
     if (!d.length) { this.value = ''; return; }
-    let out = '+7';
-    out += ' (' + d.slice(0,3);
+    let out = '+7 (' + d.slice(0,3);
     if (d.length >= 3) out += ') ' + d.slice(3,6); else { this.value = out; return; }
     if (d.length >= 6) out += '-' + d.slice(6,8);
     if (d.length >= 8) out += '-' + d.slice(8,10);
     this.value = out;
   });
-  phoneInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Backspace' && (this.value === '+7' || this.value === '+7 ')) {
-      this.value = ''; e.preventDefault();
-    }
-  });
   phoneInput.addEventListener('focus', function() { if (!this.value) this.value = '+7 '; });
   phoneInput.addEventListener('blur',  function() { if (this.value === '+7 ' || this.value === '+7') this.value = ''; });
 }
 
-/* ── Filter "other users" ───────────────────────────────── */
-let outerRole = 'all';
-const outerItems = Array.from(document.querySelectorAll('.outer-user-item'));
+let activeRole = 'all';
+const rows = Array.from(document.querySelectorAll('.user-row'));
 
-function filterOther(q) {
+function filterUsers(q) {
   const term = (q || '').toLowerCase().trim();
   let visible = 0;
-  outerItems.forEach(el => {
-    const nameOk = el.dataset.name.includes(term) || el.dataset.org.includes(term);
-    const roleOk = outerRole === 'all' || el.dataset.role === outerRole;
-    const show   = nameOk && roleOk;
-    el.style.display = show ? '' : 'none';
+  rows.forEach(row => {
+    const nameOk = row.dataset.name.includes(term) || row.dataset.username.includes(term) || row.dataset.org.includes(term);
+    const roleOk = activeRole === 'all' || row.dataset.role === activeRole;
+    const show = nameOk && roleOk;
+    row.style.display = show ? '' : 'none';
     if (show) visible++;
   });
-  const nm = document.getElementById('outerNoMatch');
-  if (nm) nm.style.display = visible === 0 ? 'block' : 'none';
+  document.getElementById('noUsersFound').style.display = visible === 0 ? 'block' : 'none';
 }
 
-document.querySelectorAll('.outer-role-btn').forEach(btn => {
+document.querySelectorAll('.role-btn').forEach(btn => {
   btn.addEventListener('click', () => {
-    outerRole = btn.dataset.role;
-    document.querySelectorAll('.outer-role-btn').forEach(b => {
-      b.classList.toggle('btn-primary', b.dataset.role === outerRole);
-      b.classList.toggle('btn-outline-secondary', b.dataset.role !== outerRole);
+    activeRole = btn.dataset.role;
+    document.querySelectorAll('.role-btn').forEach(b => {
+      b.classList.toggle('btn-primary', b.dataset.role === activeRole);
+      b.classList.toggle('btn-outline-secondary', b.dataset.role !== activeRole);
     });
-    filterOther(document.getElementById('outerSearch')?.value || '');
+    filterUsers(document.getElementById('userSearch')?.value || '');
   });
 });
 </script>

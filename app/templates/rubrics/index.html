@@ -3,9 +3,16 @@
 {% block page_title %}Рубрикатор{% endblock %}
 
 {% block content %}
-<div class="page-header">
-  <h1>Рубрикатор документов</h1>
-  <p>Тематические разделы нормативно-технической документации</p>
+<div class="page-header d-flex align-items-start justify-content-between">
+  <div>
+    <h1>Рубрикатор документов</h1>
+    <p>Тематические разделы нормативно-технической документации</p>
+  </div>
+  {% if user.role == 'org' %}
+  <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#proposeRubricModal">
+    <i class="bi bi-folder-plus me-1"></i>Предложить рубрику
+  </button>
+  {% endif %}
 </div>
 
 <div class="row g-3">
@@ -45,4 +52,51 @@
   </div>
   {% endfor %}
 </div>
+
+{# Модальное окно для предложения рубрики (только разработчик) #}
+{% if user.role == 'org' %}
+<div class="modal fade" id="proposeRubricModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="POST" action="{{ url_for('rubrics.propose_rubric') }}">
+        <div class="modal-header">
+          <h5 class="modal-title"><i class="bi bi-folder-plus me-2"></i>Предложить рубрику</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-sm-4">
+              <label class="form-label fw-semibold">Код рубрики <span class="text-danger">*</span></label>
+              <input type="text" name="code" class="form-control text-uppercase"
+                     placeholder="напр. ЭМБ" maxlength="10" required>
+              <div class="form-text">Короткий уникальный код (2–6 символов)</div>
+            </div>
+            <div class="col-sm-8">
+              <label class="form-label fw-semibold">Наименование <span class="text-danger">*</span></label>
+              <input type="text" name="name" class="form-control"
+                     placeholder="Полное название рубрики" required>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Описание</label>
+              <textarea name="description" class="form-control" rows="2"
+                        placeholder="Краткое описание тематики рубрики…"></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label fw-semibold">Обоснование / примечание</label>
+              <textarea name="note" class="form-control" rows="2"
+                        placeholder="Почему нужна эта рубрика? (необязательно)"></textarea>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-send me-1"></i>Отправить предложение
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
