@@ -144,6 +144,43 @@
   </div>
 </div>
 
+<!-- Rubric assignment card -->
+{% if all_rubrics %}
+<div class="card mt-4">
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="bi bi-folder-symlink text-primary me-1"></i>
+    Прикрепить пользователя к рубрике
+  </div>
+  <div class="card-body">
+    <form method="POST" action="{{ url_for('admin.add_to_rubric') }}" class="row g-2 align-items-end">
+      <div class="col-md-4">
+        <label class="form-label fw-semibold" style="font-size:13px;">Пользователь</label>
+        <select name="user_id" class="form-select form-select-sm" required>
+          <option value="">— Выберите пользователя —</option>
+          {% for u in all_users %}
+          <option value="{{ u.id }}">{{ u.full_name }} ({{ {'org':'Разработчик','organization':'Организация','expert':'Эксперт'}.get(u.role, u.role) }})</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label fw-semibold" style="font-size:13px;">Рубрика</label>
+        <select name="rubric_id" class="form-select form-select-sm" required>
+          <option value="">— Выберите рубрику —</option>
+          {% for r in all_rubrics %}
+          <option value="{{ r.id }}">{{ r.code }} — {{ r.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="col-md-4">
+        <button type="submit" class="btn btn-primary btn-sm">
+          <i class="bi bi-link-45deg me-1"></i>Прикрепить
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 <!-- Create User Modal -->
 <div class="modal fade" id="createUserModal" tabindex="-1">
   <div class="modal-dialog modal-lg">

@@ -324,6 +324,7 @@ def save_comment_response(doc_id, comment_id):
     comment  = Comment.query.get_or_404(comment_id)
     response = request.form.get('developer_response', '').strip()
     comment.developer_response = response or None
+    comment.response_at = datetime.utcnow() if response else None
     db.session.commit()
     flash('Ответ разработчика сохранён.', 'success')
     return redirect(url_for('documents.detail', doc_id=doc_id))

@@ -8,9 +8,51 @@
     <h1>Предложения по рубрикам</h1>
     <p>Разработчики предлагают добавить новые рубрики в рубрикатор</p>
   </div>
-  <a href="{{ url_for('rubrics.index') }}" class="btn btn-outline-secondary btn-sm">
-    <i class="bi bi-folder2-open me-1"></i>Рубрикатор
-  </a>
+  <div class="d-flex gap-2">
+    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createRubricModal">
+      <i class="bi bi-plus-circle me-1"></i>Создать рубрику
+    </button>
+    <a href="{{ url_for('rubrics.index') }}" class="btn btn-outline-secondary btn-sm">
+      <i class="bi bi-folder2-open me-1"></i>Рубрикатор
+    </a>
+  </div>
+</div>
+
+<!-- Modal: create rubric directly -->
+<div class="modal fade" id="createRubricModal" tabindex="-1" aria-labelledby="createRubricModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="createRubricModalLabel">
+          <i class="bi bi-folder-plus me-2 text-primary"></i>Создать рубрику
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <form method="POST" action="{{ url_for('admin.create_rubric_direct') }}">
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Код рубрики <span class="text-danger">*</span></label>
+            <input type="text" name="code" class="form-control" placeholder="Например: ИТС-01" required maxlength="20">
+            <div class="form-text">Уникальный идентификатор. Преобразуется в верхний регистр.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Наименование <span class="text-danger">*</span></label>
+            <input type="text" name="name" class="form-control" placeholder="Полное название рубрики" required maxlength="200">
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold">Описание</label>
+            <textarea name="description" class="form-control" rows="3" placeholder="Краткое описание (необязательно)"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-plus-circle me-1"></i>Создать рубрику
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
 </div>
 
 {% if pending %}

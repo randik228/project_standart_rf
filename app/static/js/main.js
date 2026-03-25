@@ -2,12 +2,25 @@
 const sidebarToggle = document.getElementById('sidebarToggle');
 const sidebar       = document.getElementById('sidebar');
 if (sidebarToggle && sidebar) {
+  const isMobile = () => window.innerWidth <= 768;
+
+  // Restore desktop collapsed state
+  if (!isMobile() && localStorage.getItem('sidebarCollapsed') === 'true') {
+    sidebar.classList.add('collapsed');
+  }
+
   sidebarToggle.addEventListener('click', () => {
-    sidebar.classList.toggle('open');
+    if (isMobile()) {
+      sidebar.classList.toggle('open');
+    } else {
+      sidebar.classList.toggle('collapsed');
+      localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+    }
   });
+
   // Close on outside click (mobile)
   document.addEventListener('click', (e) => {
-    if (window.innerWidth <= 768 &&
+    if (isMobile() &&
         !sidebar.contains(e.target) &&
         !sidebarToggle.contains(e.target)) {
       sidebar.classList.remove('open');

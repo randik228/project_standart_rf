@@ -74,28 +74,29 @@ def toggle_user(user_id):
 @admin_bp.route('/rubric/add-user', methods=['POST'])
 @role_required('admin')
 def add_to_rubric():
-    admin       = get_current_user()
-    user_id_raw = request.form.get('user_id', '').strip()
+    user_id_raw = request.form.get('user_id',  '').strip()
+    rubric_id_raw = request.form.get('rubric_id', '').strip()
 
-    if not admin.rubric_id:
-        flash('У вас не назначена рубрика. Обратитесь к администратору системы.', 'danger')
-        return redirect(url_for('admin.users'))
     if not user_id_raw:
         flash('Выберите пользователя из списка.', 'warning')
         return redirect(url_for('admin.users'))
+    if not rubric_id_raw:
+        flash('Выберите рубрику.', 'warning')
+        return redirect(url_for('admin.users'))
 
-    target = User.query.get_or_404(int(user_id_raw))
+    target    = User.query.get_or_404(int(user_id_raw))
+    rubric_id = int(rubric_id_raw)
 
     if target.role == 'org':
-        target.rubric_id = admin.rubric_id
+        target.rubric_id = rubric_id
         db.session.commit()
         flash(f'Организация «{target.full_name}» прикреплена к рубрике.', 'success')
     elif target.role == 'expert':
-        exists = RubricExpert.query.filter_by(rubric_id=admin.rubric_id, user_id=target.id).first()
+        exists = RubricExpert.query.filter_by(rubric_id=rubric_id, user_id=target.id).first()
         if exists:
-            flash('Этот эксперт уже в вашей рубрике.', 'warning')
+            flash('Этот эксперт уже назначен на эту рубрику.', 'warning')
         else:
-            db.session.add(RubricExpert(rubric_id=admin.rubric_id, user_id=target.id))
+            db.session.add(RubricExpert(rubric_id=rubric_id, user_id=target.id))
             db.session.commit()
             flash(f'Эксперт «{target.full_name}» прикреплён к рубрике.', 'success')
     else:
@@ -107,21 +108,26 @@ def add_to_rubric():
 @admin_bp.route('/rubric/remove-user/<int:target_id>', methods=['POST'])
 @role_required('admin')
 def remove_from_rubric(target_id):
-    admin  = get_current_user()
     target = User.query.get_or_404(target_id)
 
-    if target.role == 'org' and target.rubric_id == admin.rubric_id:
+    if target.role == 'org' and target.rubric_id:
         target.rubric_id = None
         db.session.commit()
         flash(f'Организация «{target.full_name}» откреплена от рубрики.', 'info')
     elif target.role == 'expert':
-        re = RubricExpert.query.filter_by(rubric_id=admin.rubric_id, user_id=target.id).first()
-        if re:
-            db.session.delete(re)
+        rubric_id_raw = request.form.get('rubric_id', '').strip()
+        q = RubricExpert.query.filter_by(user_id=target.id)
+        if rubric_id_raw:
+            q = q.filter_by(rubric_id=int(rubric_id_raw))
+        re_row = q.first()
+        if re_row:
+            db.session.delete(re_row)
             db.session.commit()
             flash(f'Эксперт «{target.full_name}» откреплён от рубрики.', 'info')
+        else:
+            flash('Назначение не найдено.', 'warning')
     else:
-        flash('Пользователь не привязан к вашей рубрике.', 'warning')
+        flash('Пользователь не привязан ни к одной рубрике.', 'warning')
 
     return redirect(url_for('admin.users'))
 
@@ -219,6 +225,24 @@ def rubric_proposals():
                                    .order_by(RubricProposal.created_at.desc()).limit(20).all()
     return render_template('admin/rubric_proposals.html',
                            pending=pending, reviewed=reviewed, user=get_current_user())
+
+
+@admin_bp.route('/rubrics/create-direct', methods=['POST'])
+@role_required('admin')
+def create_rubric_direct():
+    code        = request.form.get('code',        '').strip().upper()
+    name        = request.form.get('name',        '').strip()
+    description = request.form.get('description', '').strip()
+    if not code or not name:
+        flash('Код и название обязательны.', 'warning')
+        return redirect(url_for('admin.rubric_proposals'))
+    if Rubric.query.filter_by(code=code).first():
+        flash(f'Рубрика с кодом «{code}» уже существует.', 'danger')
+        return redirect(url_for('admin.rubric_proposals'))
+    db.session.add(Rubric(code=code, name=name, description=description or None))
+    db.session.commit()
+    flash(f'Рубрика «{code} — {name}» успешно создана.', 'success')
+    return redirect(url_for('admin.rubric_proposals'))
 
 
 @admin_bp.route('/rubric-proposals/<int:proposal_id>/approve', methods=['POST'])

@@ -161,6 +161,7 @@ class Comment(db.Model):
     proposed_text      = db.Column(db.Text)          # предлагаемая редакция
     justification      = db.Column(db.Text)          # обоснование
     developer_response = db.Column(db.Text)          # ответ разработчика
+    response_at        = db.Column(db.DateTime, nullable=True)  # дата и время ответа разработчика
     status             = db.Column(db.String(20), default='new')
     created_at         = db.Column(db.DateTime, default=datetime.utcnow)
 

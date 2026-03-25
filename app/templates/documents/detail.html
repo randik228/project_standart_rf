@@ -273,15 +273,10 @@
                 <option value="question">Вопрос</option>
               </select>
             </div>
-            <div class="col-sm-4">
+            <div class="col-sm-8">
               <label class="form-label">Структурный элемент</label>
               <input type="text" name="structural_element" class="form-control"
                      placeholder="напр. п. 3.2, Приложение А…">
-            </div>
-            <div class="col-sm-4">
-              <label class="form-label">Номер и дата письма</label>
-              <input type="text" name="letter_details" class="form-control"
-                     placeholder="Исх. №__ от __.__.____">
             </div>
           </div>
           <div class="mb-3">
@@ -327,20 +322,66 @@
 
     <!-- Comments table — Сводная ведомость предложений -->
     <div class="card">
-      <div class="card-header d-flex align-items-center justify-content-between">
+      <div class="card-header d-flex align-items-center justify-content-between flex-wrap gap-2">
         <span>
           <i class="bi bi-table text-primary me-2"></i>
           Сводная ведомость замечаний и предложений
-          <span class="badge bg-secondary ms-1">{{ doc.comments_count() }}</span>
+          <span class="badge bg-secondary ms-1" id="commentsVisibleBadge">{{ doc.comments_count() }}</span>
         </span>
-        {% if doc.new_comments_count() > 0 %}
-        <span class="badge bg-danger">{{ doc.new_comments_count() }} новых</span>
-        {% endif %}
+        <div class="d-flex align-items-center gap-2">
+          {% if doc.new_comments_count() > 0 %}
+          <span class="badge bg-danger">{{ doc.new_comments_count() }} новых</span>
+          {% endif %}
+          {% if doc.comments %}
+          <button type="button" class="btn btn-sm btn-outline-success" id="exportPdfBtn">
+            <i class="bi bi-file-earmark-pdf me-1"></i>Скачать PDF
+          </button>
+          {% endif %}
+        </div>
       </div>
 
       {% if doc.comments %}
+      <!-- Фильтры -->
+      <div class="card-body border-bottom pb-3 pt-3" style="background:#f9fafb;">
+        <div class="row g-2 align-items-end" style="font-size:12.5px;">
+          <div class="col-sm-3">
+            <label class="form-label mb-1 fw-semibold" style="font-size:11.5px;">Тип</label>
+            <select id="filterType" class="form-select form-select-sm">
+              <option value="">Все типы</option>
+              <option value="remark">Замечание</option>
+              <option value="proposal">Предложение</option>
+              <option value="question">Вопрос</option>
+            </select>
+          </div>
+          <div class="col-sm-3">
+            <label class="form-label mb-1 fw-semibold" style="font-size:11.5px;">Статус ответа</label>
+            <select id="filterStatus" class="form-select form-select-sm">
+              <option value="">Все статусы</option>
+              <option value="new">Новое</option>
+              <option value="accepted">Принято</option>
+              <option value="accepted_partly">Принято частично</option>
+              <option value="rejected">Отклонено</option>
+            </select>
+          </div>
+          <div class="col-sm-2">
+            <label class="form-label mb-1 fw-semibold" style="font-size:11.5px;">Дата от</label>
+            <input type="date" id="filterDateFrom" class="form-control form-control-sm">
+          </div>
+          <div class="col-sm-2">
+            <label class="form-label mb-1 fw-semibold" style="font-size:11.5px;">Дата до</label>
+            <input type="date" id="filterDateTo" class="form-control form-control-sm">
+          </div>
+          <div class="col-sm-2">
+            <button type="button" class="btn btn-sm btn-outline-secondary w-100" id="resetFiltersBtn">
+              <i class="bi bi-x-lg me-1"></i>Сбросить
+            </button>
+          </div>
+        </div>
+      </div>
+
       <div class="table-responsive">
         <table class="table table-bordered table-hover align-top mb-0"
+               id="commentsTable"
                style="font-size:12.5px;min-width:900px;">
           <thead class="table-light">
             <tr>
@@ -350,7 +391,7 @@
               <th>Замечание / предложение</th>
               <th>Предлагаемая редакция</th>
               <th>Обоснование</th>
-              <th style="width:160px;">Ответ разработчика</th>
+              <th style="width:170px;">Ответ разработчика</th>
               <th style="width:110px;" class="text-center">Статус</th>
             </tr>
           </thead>
@@ -358,7 +399,9 @@
             {% for c in doc.comments %}
             {% set ti = c.type_info() %}
             {% set si_c = c.status_info() %}
-            <tr>
+            <tr data-type="{{ c.comment_type }}"
+                data-status="{{ c.status }}"
+                data-date="{{ c.created_at.strftime('%Y-%m-%d') }}">
               <td class="text-center text-muted" style="font-size:11px;">{{ loop.index }}</td>
               <td>
                 {% if c.structural_element %}
@@ -401,6 +444,11 @@
                   {% if c.developer_response %}{{ c.developer_response }}
                   {% else %}<span class="text-muted">—</span>{% endif %}
                 {% endif %}
+                {% if c.response_at %}
+                <div class="text-muted mt-1" style="font-size:10px;">
+                  <i class="bi bi-clock me-1"></i>{{ c.response_at.strftime('%d.%m.%Y %H:%M') }}
+                </div>
+                {% endif %}
               </td>
               <td class="text-center">
                 <span class="badge bg-{{ si_c[1] }} d-block mb-2">{{ si_c[0] }}</span>
@@ -434,6 +482,10 @@
             {% endfor %}
           </tbody>
         </table>
+      </div>
+      <div id="noCommentsFound" class="card-body text-center text-muted py-4" style="display:none;font-size:13px;">
+        <i class="bi bi-funnel fs-2 d-block mb-2 opacity-25"></i>
+        По выбранным фильтрам замечания не найдены
       </div>
       {% else %}
       <div class="card-body">
@@ -595,6 +647,242 @@
 {% endif %}
 
 {# ── Удаление документа (только куратор) ── #}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.7/build/pdfmake.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.7/build/vfs_fonts.js"></script>
+<script>
+// ── Фильтрация таблицы замечаний ────────────────────────────────────────────
+(function() {
+  const filterType     = document.getElementById('filterType');
+  const filterStatus   = document.getElementById('filterStatus');
+  const filterDateFrom = document.getElementById('filterDateFrom');
+  const filterDateTo   = document.getElementById('filterDateTo');
+  const resetBtn       = document.getElementById('resetFiltersBtn');
+  const badge          = document.getElementById('commentsVisibleBadge');
+  const noFound        = document.getElementById('noCommentsFound');
+  const tbody          = document.querySelector('#commentsTable tbody');
+  if (!tbody) return;
+
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+
+  function applyFilters() {
+    const type   = filterType   ? filterType.value   : '';
+    const status = filterStatus ? filterStatus.value : '';
+    const from   = filterDateFrom && filterDateFrom.value ? new Date(filterDateFrom.value) : null;
+    const to     = filterDateTo   && filterDateTo.value   ? new Date(filterDateTo.value)   : null;
+    if (to) to.setHours(23,59,59,999);
+
+    let visible = 0;
+    rows.forEach(row => {
+      const rType   = row.dataset.type;
+      const rStatus = row.dataset.status;
+      const rDate   = row.dataset.date ? new Date(row.dataset.date) : null;
+
+      const typeOk   = !type   || rType   === type;
+      const statusOk = !status || rStatus === status;
+      const fromOk   = !from   || (rDate && rDate >= from);
+      const toOk     = !to     || (rDate && rDate <= to);
+
+      const show = typeOk && statusOk && fromOk && toOk;
+      row.style.display = show ? '' : 'none';
+      if (show) visible++;
+    });
+
+    if (badge) badge.textContent = visible;
+    if (noFound) noFound.style.display = visible === 0 ? '' : 'none';
+  }
+
+  [filterType, filterStatus, filterDateFrom, filterDateTo].forEach(el => {
+    if (el) el.addEventListener('change', applyFilters);
+  });
+
+  if (resetBtn) {
+    resetBtn.addEventListener('click', () => {
+      if (filterType)     filterType.value     = '';
+      if (filterStatus)   filterStatus.value   = '';
+      if (filterDateFrom) filterDateFrom.value = '';
+      if (filterDateTo)   filterDateTo.value   = '';
+      applyFilters();
+    });
+  }
+})();
+
+// ── PDF-экспорт — pdfmake (нативный PDF, кириллица ✓) ───────────────────────
+document.getElementById('exportPdfBtn')?.addEventListener('click', function() {
+  const docTitle = {{ doc.title | tojson }};
+  const origTable = document.getElementById('commentsTable');
+  if (!origTable) return;
+
+  const visibleRows = Array.from(origTable.querySelectorAll('tbody tr'))
+    .filter(r => r.style.display !== 'none');
+
+  // Извлечь чистый текст из DOM-ячейки
+  function cellText(td) {
+    if (!td) return '—';
+    const c = td.cloneNode(true);
+    c.querySelectorAll('form,button,input,textarea,i').forEach(el => el.remove());
+    c.querySelectorAll('[class*="badge"]').forEach(b =>
+      b.replaceWith(document.createTextNode(b.textContent.trim()))
+    );
+    return (c.textContent || '').replace(/\s+/g, ' ').trim() || '—';
+  }
+
+  // Ячейка «Ответ разработчика» — отдельно текст и дата
+  function parseResponseCell(td) {
+    if (!td) return ['—', '—'];
+
+    // Для admin/org ответ лежит в <textarea> — берём .value из ОРИГИНАЛА
+    // (cloneNode не копирует .value, только defaultValue/textContent)
+    let responseText = '';
+    const origTextarea = td.querySelector('textarea[name="developer_response"]');
+    if (origTextarea) {
+      responseText = origTextarea.value.trim();
+    }
+
+    // Дата ответа — из клона, чтобы не трогать оригинал
+    const c = td.cloneNode(true);
+    let date = '—';
+    const muted = c.querySelectorAll('.text-muted');
+    if (muted.length) {
+      const last = muted[muted.length - 1];
+      date = last.textContent.replace(/[^\d.:]/g, ' ').trim() || '—';
+      last.remove();
+    }
+
+    // Если textarea не было (эксперт видит plain text), берём оставшийся текст
+    if (!responseText) {
+      c.querySelectorAll('form,button,input,textarea,i').forEach(el => el.remove());
+      responseText = (c.textContent || '').replace(/\s+/g, ' ').trim();
+    }
+
+    return [responseText || '—', date];
+  }
+
+  // Заголовки таблицы
+  const TH_STYLE = { bold: true, fontSize: 7, color: 'white', alignment: 'center',
+                     margin: [1, 3, 1, 3] };
+  const TD_STYLE = { fontSize: 8, margin: [2, 2, 2, 2] };
+  const TDC_STYLE = { fontSize: 8, alignment: 'center', margin: [1, 2, 1, 2] };
+
+  const tableBody = [
+    [
+      { text: '№',                      ...TH_STYLE },
+      { text: 'Структурный\nэлемент',   ...TH_STYLE },
+      { text: 'Организация /\nписьмо',  ...TH_STYLE },
+      { text: 'Замечание /\nпредложение',...TH_STYLE },
+      { text: 'Предлагаемая\nредакция', ...TH_STYLE },
+      { text: 'Обоснование',            ...TH_STYLE },
+      { text: 'Ответ\nразработчика',    ...TH_STYLE },
+      { text: 'Дата\nответа',           ...TH_STYLE },
+      { text: 'Статус',                 ...TH_STYLE },
+    ]
+  ];
+
+  visibleRows.forEach((r, idx) => {
+    const cells = r.querySelectorAll('td');
+    const [respText, respDate] = parseResponseCell(cells[6]);
+    tableBody.push([
+      { text: String(idx + 1),        ...TDC_STYLE },
+      { text: cellText(cells[1]),     ...TD_STYLE  },
+      { text: cellText(cells[2]),     ...TD_STYLE  },
+      { text: cellText(cells[3]),     ...TD_STYLE  },
+      { text: cellText(cells[4]),     ...TD_STYLE  },
+      { text: cellText(cells[5]),     ...TD_STYLE  },
+      { text: respText,               ...TD_STYLE  },
+      { text: respDate,               ...TDC_STYLE },
+      { text: cellText(cells[7]),     ...TDC_STYLE },
+    ]);
+  });
+
+  const safeTitle = docTitle.replace(/[^\wа-яА-ЯёЁ\s]/g, '').trim().slice(0, 60);
+
+  // pdfmake: A4 landscape, поля как в DOCX (left=20mm, top=20mm, right=20mm, bottom=15mm)
+  // 1mm = 2.8346pt
+  const mm = v => Math.round(v * 2.8346);
+
+  const docDef = {
+    pageOrientation: 'landscape',
+    pageSize:        'A4',
+    pageMargins:     [mm(20), mm(20), mm(20), mm(15)],
+
+    defaultStyle: { font: 'Roboto', fontSize: 11 },
+
+    styles: {
+      appLabel: { fontSize: 11, alignment: 'right'  },
+      titleText:{ fontSize: 11, alignment: 'center', lineHeight: 1.4 },
+    },
+
+    content: [
+      // «Приложение» справа
+      { text: 'Приложение', style: 'appLabel', margin: [0, 0, 0, mm(4)] },
+
+      // Заголовок по центру
+      {
+        text: [
+          'Сводная информация по предложениям, поступившим от организаций,\n',
+          'по рассмотрению окончательной редакции ' + docTitle,
+        ],
+        style: 'titleText',
+        margin: [0, 0, 0, mm(5)],
+      },
+
+      // Таблица
+      {
+        table: {
+          headerRows: 1,
+          dontBreakRows: false,
+          // Ширины: сумма * / процентами pdfmake не поддерживает — используем auto + *
+          widths: [18, 52, 72, '*', 90, 78, 100, 52, 42],
+          body: tableBody,
+        },
+        layout: {
+          fillColor:  ri => ri === 0 ? '#1a3a6b' : (ri % 2 ? '#f5f7fa' : null),
+          hLineColor: ()  => '#999',
+          vLineColor: ()  => '#999',
+          hLineWidth: ()  => 0.4,
+          vLineWidth: ()  => 0.4,
+          paddingLeft:   () => 3,
+          paddingRight:  () => 3,
+          paddingTop:    () => 2,
+          paddingBottom: () => 2,
+        },
+      },
+
+      // Нижний блок: ФИО слева + подпись справа
+      {
+        margin: [0, mm(10), 0, 0],
+        columns: [
+          {
+            width: '55%',
+            text: [
+              'Руководитель разработки: Свистельников А.А.,\n',
+              'Заместитель начальника управления методологии ИТС ФАУ «РОСДОРНИИ»',
+            ],
+            fontSize: 10,
+            lineHeight: 1.6,
+          },
+          {
+            width: '45%',
+            alignment: 'right',
+            fontSize: 10,
+            text: [
+              'Подпись',
+              { text: '                            ', decoration: 'underline' },
+              ' /( ',
+              { text: '                                              ', decoration: 'underline' },
+              ' )',
+            ],
+          },
+        ],
+      },
+    ],
+  };
+
+  pdfMake.createPdf(docDef).download('сводная_ведомость_' + safeTitle + '.pdf');
+});
+</script>
+{% endblock %}
+
 {% if user.role == 'admin' %}
 <div class="modal fade" id="deleteDocModal" tabindex="-1">
   <div class="modal-dialog modal-dialog-centered">

@@ -13,9 +13,10 @@ def seed_data():
 
     # ── Users ─────────────────────────────────────────────────────────────────
     # rubric_id assigned after rubrics are flushed (see below)
-    admin = User(username='admin', email='admin@standart-rf.ru', password='admin123',
-                 role='admin', full_name='Куратор Экспертного Сообщества',
-                 organization='Портал «Стандарт РФ»', position='Куратор ЭС')
+    admin = User(username='admin', email='svistelnikov@rosdornii.ru', password='admin123',
+                 role='admin', full_name='Свистельников Александр Анатольевич',
+                 organization='ФАУ «РОСДОРНИИ»',
+                 position='Заместитель начальника управления методологии ИТС')
 
     org1 = User(username='mintrans', email='mintrans@gov.ru', password='demo123',
                 role='org', full_name='Иванов Сергей Николаевич',
